@@ -1,0 +1,39 @@
+
+importScripts('https://www.gstatic.com/firebasejs/9.0.0/firebase-app-compat.js');
+importScripts('https://www.gstatic.com/firebasejs/9.0.0/firebase-messaging-compat.js');
+
+firebase.initializeApp({
+  apiKey: "YOUR_API_KEY",          
+  projectId: "YOUR_PROJECT_ID", 
+  messagingSenderId: "YOUR_SENDER_ID", 
+  appId: "YOUR_APP_ID"
+});
+
+const messaging = firebase.messaging();
+
+
+messaging.onBackgroundMessage((payload) => {
+  console.log('[firebase-messaging-sw.js] Background message received: ', payload);
+  
+  const notificationTitle = payload.notification.title || "New Vibe Alert";
+  const notificationOptions = {
+    body: payload.notification.body || "Someone is looking to connect nearby.",
+    icon: '/favicon.ico', 
+    badge: '/favicon.ico',
+    tag: 'vibe-notification', 
+    data: {
+        // url: window.location.origin // Where the user goes on clicking
+        click_action: payload.data?.click_action || '/'
+    }
+  };
+
+  self.registration.showNotification(notificationTitle, notificationOptions);
+});
+
+// Logic to open the app when the notification is clicked
+self.addEventListener('notificationclick', (event) => {
+    event.notification.close();
+    event.waitUntil(
+        clients.openWindow('/')
+    );
+});
