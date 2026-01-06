@@ -42,7 +42,7 @@ export const useVibeFeed = (userLoc, filter) => {
       
       if (isOwner || isPartner) return true;
 
-      // ✅ FIXED: Resilient check. If creatorTrustScore is undefined, treat as 0
+    
       const score = item.creatorTrustScore !== undefined ? item.creatorTrustScore : 0;
       if (score < 0) return false;
 

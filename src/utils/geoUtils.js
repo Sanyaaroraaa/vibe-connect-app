@@ -1,6 +1,6 @@
 /**
  * Returns distance in KM between two points
- * Production Tip: For "nearby" alerts, we will eventually use Geohashes 
+ * For "nearby" alerts, we will eventually use Geohashes 
  * to query Firestore efficiently instead of calculating for every user.
  */
 export const getDistance = (lat1, lon1, lat2, lon2) => {

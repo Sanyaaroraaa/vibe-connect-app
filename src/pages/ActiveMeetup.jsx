@@ -7,8 +7,15 @@ import { toast } from 'react-toastify';
 import { useActiveVibe } from '../hooks/useActiveVibe';
 import { logArrival, abortSession, reportGhosting, blockUser, leaveSession } from '../services/vibeService';
 import ConfirmModal from '../components/ConfirmModal'; 
+import { useTheme } from '../context/ThemeContext';
+import { useAuth } from '../context/AuthContext';
 
-const ActiveMeetup = ({ item, accent, onEnd }) => {
+
+
+const ActiveMeetup = ({ item,onEnd }) => {
+  const { accent } = useTheme();          
+  const { user } = useAuth();              
+  const currentUid = user?.uid;
   const { vibeData, loading } = useActiveVibe(item?.id);
   const [isRevealed, setIsRevealed] = useState(false);
   const [confirmConfig, setConfirmConfig] = useState({ show: false, type: null });
@@ -17,7 +24,7 @@ const ActiveMeetup = ({ item, accent, onEnd }) => {
   const [cachedPartnerName, setCachedPartnerName] = useState("");
   const wasSessionSuccessful = useRef(false);
 
-  const currentUid = auth.currentUser?.uid;
+ 
   const partnerId = vibeData?.participants?.find(id => id !== currentUid) || vibeData?.creatorId;
   const iArrived = vibeData?.[`arrived_${currentUid}`];
   const partnerArrived = vibeData?.[`arrived_${partnerId}`];
@@ -131,22 +138,24 @@ const ActiveMeetup = ({ item, accent, onEnd }) => {
         <div className="d-flex align-items-center gap-2 gap-md-3 flex-grow-1 overflow-hidden">
             <ScratchBadge code={vibeData?.secureKey || "...."} accent={accent} />
             <div className="d-flex flex-column overflow-hidden">
-                <div className="d-flex align-items-center gap-1 text-white-50" style={{ fontSize: '11px' }}>
-                  <MapPin size={12} color={accent} />
-                  <span className="text-truncate fw-bold">{(vibeData?.locationName || "CAMPUS").toUpperCase()}</span>
-                </div>
-                <div className="d-flex align-items-center gap-1" style={{ fontSize: '11px' }}>
-                  <Clock size={12} color={vibeData?.sessionStarted ? accent : '#444'} />
-                  {/* 🔥 FIXED TIMER LOGIC: Staying paused until sessionStarted is true */}
-               
+  <div className="d-flex align-items-center gap-1 text-white-50" style={{ fontSize: '11px' }}>
+    <MapPin size={12} color={accent} />
+    <span className="text-truncate fw-bold">{(vibeData?.locationName || "CAMPUS").toUpperCase()}</span>
+  </div>
+  <div className="d-flex align-items-center gap-1" style={{ fontSize: '11px' }}>
+    <Clock size={12} color={vibeData?.sessionStarted ? accent : '#444'} />
+    
+    
+    {!vibeData?.sessionStarted && !loading && (
+      <span className="text-white-50 fw-bold me-1" style={{fontSize: '9px'}}>WAITING FOR PEER...</span>
+    )}
 
-
-  <MissionTimer 
-     expiresAt={vibeData?.expiresAt} 
-     durationMins={vibeData?.durationMins} 
-     sessionStarted={vibeData?.sessionStarted || false} 
-     accent={accent} 
-  />
+    <MissionTimer 
+       expiresAt={vibeData?.expiresAt} 
+       sessionStarted={vibeData?.sessionStarted || false} 
+       vibeId={item.id}
+       accent={accent} 
+    />
 
                 </div>
             </div>

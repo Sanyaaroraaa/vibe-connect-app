@@ -11,7 +11,7 @@ const AdminPanel = ({ accent }) => {
   const [stats, setStats] = useState({ activeVibes: 0, totalUsers: 0, pendingApprovals: 0 });
 
   useEffect(() => {
-    // 1. Fetch Stats (Campus Pulse)
+   
     const fetchStats = async () => {
       const vibesQuery = query(collection(db, "vibes"), where("status", "==", "open"));
       const usersQuery = collection(db, "users");
@@ -32,7 +32,7 @@ const AdminPanel = ({ accent }) => {
 
     fetchStats();
     
-    // 2. Real-time Listener for the Verification Queue
+   
     const q = query(collection(db, "users"), where("status", "==", "pending"));
     return onSnapshot(q, (snapshot) => {
       setPendingUsers(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
@@ -43,7 +43,7 @@ const AdminPanel = ({ accent }) => {
     await updateDoc(doc(db, "users", userId), {
       status: 'approved',
       isVerified: true,
-      trustPoints: 5 // Starting points
+      trustPoints: 5 
     });
   };
 
@@ -54,7 +54,7 @@ const AdminPanel = ({ accent }) => {
         <h2 className="fw-black m-0" style={{ letterSpacing: '-1px' }}>COMMAND CENTER</h2>
       </div>
 
-      {/* DASHBOARD CARDS */}
+    
       <div className="row g-4 mb-5">
         <div className="col-md-4">
           <div className="p-4 rounded-4" style={{ background: '#111', border: '1px solid #222' }}>
@@ -79,7 +79,7 @@ const AdminPanel = ({ accent }) => {
         </div>
       </div>
 
-      {/* VERIFICATION QUEUE */}
+      
       <h5 className="fw-bold mb-4 text-white-50">VERIFICATION QUEUE</h5>
       {pendingUsers.length === 0 ? (
         <div className="p-5 text-center rounded-4" style={{ border: '2px dashed #222' }}>

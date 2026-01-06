@@ -4,10 +4,6 @@ import { messaging, db, auth } from "../config/firebase";
 
 const VAPID_KEY = import.meta.env.VITE_FIREBASE_VAPID_KEY;
 
-/**
- * Requests notification permission and retrieves the FCM token.
- * Syncs the token to Firestore if the user is logged in.
- */
 export const requestForToken = async () => {
   try {
     if (!("Notification" in window)) {
@@ -38,16 +34,13 @@ export const requestForToken = async () => {
   }
 };
 
-/**
- * Saves the FCM token to the user's document in Firestore.
- * Avoids unnecessary writes if the token hasn't changed.
- */
+
 const syncTokenToUser = async (userId, token) => {
   try {
     const userRef = doc(db, "users", userId);
     const userSnap = await getDoc(userRef);
 
-    // Only update if the token is actually different to save Firestore reads/writes
+  
     if (userSnap.exists() && userSnap.data().fcmToken === token) {
       return;
     }
@@ -63,8 +56,8 @@ const syncTokenToUser = async (userId, token) => {
 
 /**
  * Listens for foreground messages.
- * @param {Function} callback - Function to execute when a message is received.
- * @returns {Unsubscribe} - Function to stop listening.
+ * @param {Function} callback 
+ * @returns {Unsubscribe}
  */
 export const onMessageListener = (callback) => {
   return onMessage(messaging, (payload) => {

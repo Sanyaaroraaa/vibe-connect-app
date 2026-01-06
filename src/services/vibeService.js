@@ -22,14 +22,20 @@ const runGlobalCleanup = async () => {
   } catch (err) { console.error("❌ Janitor failed:", err); }
 };
 
-const triggerNotification = async (recipientId, title, body, type) => {
+
+const triggerNotification = async (recipientId, title, body, type, vibeId = null) => {
   if (!recipientId || recipientId === auth.currentUser?.uid) return;
   try {
-    await addDoc(collection(db, "notifications"), {
+    const payload = {
       recipientId, title, body, type, status: 'unread',
       createdAt: serverTimestamp(),
       expiresAt: Timestamp.fromDate(new Date(Date.now() + 24 * 60 * 60 * 1000))
-    });
+    };
+
+ 
+    if (vibeId) payload.vibeId = vibeId;
+
+    await addDoc(collection(db, "notifications"), payload);
   } catch (err) { console.error("❌ Notification failed:", err); }
 };
 
@@ -41,28 +47,21 @@ export const createVibe = async (vibeData, userLoc) => {
   const userRef = doc(db, "users", uid);
   
   try {
-    // 1. Fetch User Data & Ensure Block List Exists
     const userSnap = await getDoc(userRef);
     if (!userSnap.exists()) throw new Error("User profile not found");
-    
     const userData = userSnap.data();
     
-    // Safety check: If user doc is missing blockedUsers, add it now 
-    // to prevent security rules from crashing on the next 'read'
     if (!userData.blockedUsers) {
       await updateDoc(userRef, { blockedUsers: [] });
     }
 
     const currentTrust = userData.trustPoints || 0;
-
-    // 2. Generate Secure Key
     const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
     let generatedKey = "";
     for (let i = 0; i < 4; i++) generatedKey += chars.charAt(Math.floor(Math.random() * chars.length));
     
     const durationMins = vibeData.mins || 15;
     
-    // 3. Prepare Payload
     const vibePayload = {
       creatorName: auth.currentUser.displayName || "Node",
       creatorId: uid, 
@@ -78,37 +77,36 @@ export const createVibe = async (vibeData, userLoc) => {
       participants: [],
       participantsNames: [], 
       participantCount: 0,
-      activeParticipants: [], // 🔥 FIX: Add creator to active list immediately
+      activeParticipants: [], 
       sessionStarted: false,
       status: "open",
       messages: []
     };
 
-    // 4. Create the document
+    
     const docRef = await addDoc(collection(db, "vibes"), vibePayload);
 
-    // 5. Update Creator's location in DB
     await updateDoc(userRef, { 
       lastSeen: serverTimestamp(), 
       lastCoords: userLoc 
     });
 
-    // Run Cleanup and Notifications
     runGlobalCleanup();
     
     const searchHash = geohash.encode(userLoc.lat, userLoc.lng, 6);
     const qNearby = query(collection(db, "users"), where("geohash", ">=", searchHash), where("geohash", "<=", searchHash + "\uf8ff"), limit(50));
     const usersSnap = await getDocs(qNearby);
     
+    
     usersSnap.docs.forEach(uDoc => {
       const uData = uDoc.data();
-      // Only notify people who haven't blocked you and vice versa
       if (uDoc.id !== uid && !uData.isIncognito) {
         const peerCoords = uData.lastCoords || uData.coords;
         const isNotBlocked = !(uid in (uData.blockedUsers || []));
         
         if (isNotBlocked && peerCoords && getDistance(userLoc.lat, userLoc.lng, peerCoords.lat, peerCoords.lng) <= 0.5) {
-          triggerNotification(uDoc.id, "NEARBY SIGNAL", `Buddy needed for ${vibeData.type}!`, "radar");
+         
+          triggerNotification(uDoc.id, "NEARBY SIGNAL", `Buddy needed for ${vibeData.type}!`, "radar", docRef.id);
         }
       }
     });
@@ -116,7 +114,7 @@ export const createVibe = async (vibeData, userLoc) => {
     return docRef;
   } catch (err) { 
     console.error("Vibe Creation Error:", err);
-    throw new Error("Creation Denied. Check profile approval."); 
+    throw new Error("Creation Denied."); 
   }
 };
 
@@ -131,7 +129,7 @@ export const joinVibe = async (vibeId, userLoc) => {
       if (!freshSnap.exists()) throw "Vibe no longer exists.";
       const data = freshSnap.data();
       if (data.participants?.includes(uid)) return true; 
-      if (getDistance(userLoc.lat, userLoc.lng, data.coords.lat, data.coords.lng) > 5.0) throw "Too far away (500m limit).";
+      if (getDistance(userLoc.lat, userLoc.lng, data.coords.lat, data.coords.lng) > 0.5) throw "Too far away (500m limit).";
       if (data.status !== "open" || data.participantCount >= 1) throw "This vibe has already been filled.";
       if (data.creatorId === uid) throw "You cannot join your own vibe.";
 
@@ -142,10 +140,13 @@ export const joinVibe = async (vibeId, userLoc) => {
         participantCount: 1,
         status: "matched" 
       });
+      triggerNotification(data.creatorId, "CONNECTION MADE", "A peer has joined your vibe!", "match", vibeId);
     });
     return true;
   } catch (err) { throw err; }
 };
+
+
 
 export const updatePresence = async (vibeId, uid, isPresent) => {
     const vibeRef = doc(db, "vibes", vibeId);
@@ -158,16 +159,21 @@ export const updatePresence = async (vibeId, uid, isPresent) => {
         if (isPresent && !activeList.includes(uid)) activeList.push(uid);
         else if (!isPresent) activeList = activeList.filter(id => id !== uid);
 
-        const hostInRoom = activeList.includes(data.creatorId);
-        const peerInRoom = data.participants.some(p => activeList.includes(p));
-        
         const updates = { activeParticipants: activeList };
 
-        // 🔥 THE HANDSHAKE: Only flips to true when both are physically in the chat component
+        
+        const hostId = data.creatorId;
+        const peerId = data.participants?.[0]; 
+
+        const hostInRoom = activeList.includes(hostId);
+        const peerInRoom = peerId && activeList.includes(peerId);
+        
+       
         if (hostInRoom && peerInRoom && !data.sessionStarted) {
             updates.sessionStarted = true;
             updates.expiresAt = Timestamp.fromDate(new Date(Date.now() + (data.durationMins || 15) * 60000));
         }
+        
         transaction.update(vibeRef, updates);
     });
 };
@@ -178,14 +184,8 @@ export const abortSession = async (vibeId) => {
   catch (err) { console.error("❌ Abort failed:", err); throw err; }
 };
 
-/**
- * 🚪 LEAVE SESSION: Removes the user from activeParticipants.
- * If activeParticipants becomes empty, the vibe is finally deleted.
- */
-/**
- * 🚪 LEAVE SESSION: Removes current user from active list.
- * Only deletes the document if NO ONE is left looking at it.
- */
+
+
 export const leaveSession = async (vibeId, uid) => {
   if (!vibeId) return;
   const vibeRef = doc(db, "vibes", vibeId);
@@ -241,8 +241,33 @@ export const reportGhosting = async (vibeId, ghostId) => {
 };
 
 export const deleteVibe = async (vibeId) => {
-  try { await deleteDoc(doc(db, "vibes", vibeId)); } 
-  catch (err) { console.error("❌ Vibe deletion failed:", err); }
+  if (!vibeId) return;
+  try {
+    const batch = writeBatch(db);
+
+    // 1. Find all notifications linked to this specific vibe
+    const notifQuery = query(
+      collection(db, "notifications"), 
+      where("vibeId", "==", vibeId)
+    );
+    const notifSnap = await getDocs(notifQuery);
+
+    // 2. Add notification deletions to the batch
+    notifSnap.docs.forEach((notifDoc) => {
+      batch.delete(notifDoc.ref);
+    });
+
+    // 3. Delete the vibe document itself
+    batch.delete(doc(db, "vibes", vibeId));
+
+    // 4. Execute all at once
+    await batch.commit();
+    console.log(`✅ Cleaned up Vibe ${vibeId} and ${notifSnap.size} notifications.`);
+  } catch (err) {
+    console.error("❌ Vibe cleanup failed:", err);
+    // Fallback: Try to at least delete the vibe if the notification query failed
+    await deleteDoc(doc(db, "vibes", vibeId)).catch(() => {});
+  }
 };
 
 export const triggerSOS = async (userLoc) => {

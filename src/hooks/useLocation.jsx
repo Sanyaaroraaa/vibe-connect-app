@@ -2,10 +2,10 @@ import { useState, useEffect } from 'react';
 import { doc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { db, auth } from '../config/firebase';
 
-// Standard Geohash Alphabet
+
 const BASE32 = '0123456789bcdefghjkmnpqrstuvwxyz';
 
-// Helper to encode Geohash without needing an external npm package
+
 const encodeGeohash = (lat, lon, precision = 9) => {
   let latInterval = [-90, 90];
   let lonInterval = [-180, 180];
@@ -59,7 +59,7 @@ export const useLocation = () => {
       const coords = { lat: latitude, lng: longitude };
       setUserLoc(coords);
 
-      // Generate a 9-character precision geohash (roughly 4m x 4m accuracy)
+     
       const hash = encodeGeohash(latitude, longitude, 9);
 
       if (auth.currentUser) {
@@ -67,7 +67,7 @@ export const useLocation = () => {
           const userRef = doc(db, "users", auth.currentUser.uid);
           await updateDoc(userRef, {
             lastCoords: coords,
-            geohash: hash, // 🚀 This allows for lightning-fast Radar queries
+            geohash: hash, 
             lastSeen: serverTimestamp()
           });
         } catch (err) {
@@ -76,7 +76,7 @@ export const useLocation = () => {
       }
     }, (err) => console.error(err), {
       enableHighAccuracy: true,
-      maximumAge: 10000, // Update every 10 seconds to save battery
+      maximumAge: 10000, 
       timeout: 5000
     });
 

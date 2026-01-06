@@ -23,43 +23,28 @@ export const SOSManager = ({ active, onTrigger }) => {
     return null;
 };
 
-// 🔥 STRICTLY FIXED TIMER: Stays paused until sessionStarted is true
+
 export const MissionTimer = memo(({ expiresAt, durationMins, sessionStarted, accent }) => {
   const [timeLeft, setTimeLeft] = useState("");
 
   useEffect(() => {
-    // 1. CHAT ROOM MODE: Handshake not yet finished
-    if (sessionStarted === false) { 
+    
+    if (!sessionStarted) { 
       setTimeLeft(`${durationMins || 15}:00`); 
-      return; // 🛑 HARD STOP: No interval starts.
-    }
-
-    // 2. CHAT ROOM MODE: Handshake finished, but waiting for DB timestamp to sync
-    // If we are in a session but the new expiresAt hasn't arrived yet, keep it at full time
-    if (sessionStarted === true && !expiresAt) {
-      setTimeLeft(`${durationMins || 15}:00`);
       return; 
     }
 
-    // 3. COUNTDOWN LOGIC: Either for Feed mode (sessionStarted is undefined) 
-    // OR for a started Room (sessionStarted is true)
-    const update = () => {
-      let targetTime;
+    if (sessionStarted && !expiresAt) {
+      return; 
+    }
 
-      if (expiresAt) {
-        // Use the official DB timestamp
-        targetTime = expiresAt.toMillis ? expiresAt.toMillis() : expiresAt;
-      } else {
-        // Feed Mode fallback: only if sessionStarted isn't a room boolean
-        // We calculate based on the local now + duration
-        targetTime = Date.now() + (durationMins || 15) * 60000;
-      }
-
+    const calculateTime = () => {
+      const targetTime = expiresAt?.toMillis ? expiresAt.toMillis() : expiresAt;
       const diff = targetTime - Date.now();
 
       if (diff <= 0) {
         setTimeLeft("00:00");
-        return;
+        return clearInterval(timer);
       }
 
       const m = Math.floor(diff / 60000);
@@ -67,28 +52,27 @@ export const MissionTimer = memo(({ expiresAt, durationMins, sessionStarted, acc
       setTimeLeft(`${m}:${s.toString().padStart(2, "0")}`);
     };
 
-    update(); // Run immediately to avoid 1s lag
-    const timer = setInterval(update, 1000);
+    calculateTime(); 
+    const timer = setInterval(calculateTime, 1000);
     
     return () => clearInterval(timer);
-  }, [expiresAt, sessionStarted, durationMins]);
+  }, [expiresAt, sessionStarted, durationMins]); 
 
   return (
     <span 
       className="fw-bold animate__animated animate__fadeIn" 
       style={{ 
-        color: sessionStarted === false ? '#444' : accent,
+        color: !sessionStarted ? '#444' : accent,
         letterSpacing: '0.5px' 
       }}
     >
       {timeLeft}
-      {sessionStarted === false && (
+      {!sessionStarted && (
         <span className="ms-1" style={{ fontSize: '0.6rem', opacity: 0.5 }}>WAITING...</span>
       )}
     </span>
   );
 });
-
 export const ScratchBadge = ({ code, accent }) => {
     const canvasRef = useRef(null);
     useEffect(() => {
@@ -126,7 +110,7 @@ export const ChatRoom = ({ vibeId, accent }) => {
   const [isOtherTyping, setIsOtherTyping] = useState(false);
   const [burningId, setBurningId] = useState(null);
   const [showCam, setShowCam] = useState(false);
-  const [isCapturing, setIsCapturing] = useState(false); // 🔥 For Snapchat capture loader
+  const [isCapturing, setIsCapturing] = useState(false); 
   const [viewedIds, setViewedIds] = useState(new Set());
   const [facingMode, setFacingMode] = useState('user');
   const videoRef = useRef(null);
@@ -152,6 +136,41 @@ export const ChatRoom = ({ vibeId, accent }) => {
     });
   }, [vibeId]);
 
+  
+useEffect(() => {
+  const markAsRead = async () => {
+    if (!vibeId || messages.length === 0) return;
+
+    const uid = auth.currentUser.uid;
+    let needsUpdate = false;
+    
+    
+    const updatedMessages = messages.map(msg => {
+    
+      if (msg.senderId !== uid && !msg.seenBy?.includes(uid)) {
+        needsUpdate = true;
+        return {
+          ...msg,
+          seenBy: [...(msg.seenBy || []), uid]
+        };
+      }
+      return msg;
+    });
+
+    if (needsUpdate) {
+      try {
+        await updateDoc(doc(db, "vibes", vibeId), {
+          messages: updatedMessages
+        });
+      } catch (err) {
+        console.error("Failed to update read receipts", err);
+      }
+    }
+  };
+
+  markAsRead();
+}, [messages, vibeId]); 
+
   const scrollToBottom = () => chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
   useEffect(() => scrollToBottom(), [messages, isOtherTyping]);
 
@@ -172,7 +191,7 @@ export const ChatRoom = ({ vibeId, accent }) => {
     setInput("");
   };
 
-  // 🔥 RESTORED: Location Sharing Logic
+ 
   const sendLocation = () => {
     if (!navigator.geolocation) return toast.error("GPS Disabled");
     navigator.geolocation.getCurrentPosition(async (pos) => {
@@ -246,7 +265,7 @@ export const ChatRoom = ({ vibeId, accent }) => {
         <div ref={chatEndRef} />
       </div>
 
-      {/* INPUT BAR WITH RESTORED LOCATION BUTTON */}
+      
       <Form onSubmit={sendMsg} className="p-2 p-md-3 bg-black border-top border-dark d-flex gap-2">
         <Button onClick={openCam} variant="dark" className="rounded-circle chat-btn"><Camera size={18} color={accent}/></Button>
         <Button onClick={sendLocation} variant="dark" className="rounded-circle chat-btn"><MapPin size={18} color={accent}/></Button>
@@ -254,7 +273,7 @@ export const ChatRoom = ({ vibeId, accent }) => {
         <Button type="submit" style={{ background: accent, border: 'none', color: '#000', borderRadius: '10px' }}><ChevronRight /></Button>
       </Form>
 
-      {/* VIEWING LOADER */}
+      
       {burningId && (
         <div className="position-absolute top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center" style={{ zIndex: 2000, background: '#000' }}>
           <div className="position-absolute top-0 end-0 m-4" style={{ transform: 'rotate(-90deg)' }}>

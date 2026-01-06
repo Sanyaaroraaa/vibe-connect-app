@@ -1,13 +1,18 @@
 import React, { useEffect, useState, useRef, memo, useMemo } from 'react';
 import { Container, Row, Col, Button, Form, Modal } from 'react-bootstrap';
-import { 
-  MapPin, Settings as SettingsIcon, Zap, BookOpen, Clock, 
+import { MapPin, Settings as SettingsIcon, Zap, BookOpen, Clock, 
   ChevronDown, ShieldCheck, Trash2, Lock, AlertTriangle, LogIn, Star, ArrowRight, Bell, Plus, X, UserX
 } from 'lucide-react';
 import gsap from 'gsap';
 import { toast, ToastContainer } from 'react-toastify';
 import { auth, db } from "../config/firebase"; 
 import { getDoc, doc, collection, query, where, onSnapshot, updateDoc, setDoc, serverTimestamp, deleteDoc } from "firebase/firestore";
+import { getDistance } from '../utils/geoUtils';
+
+// Context & Navigation
+import { useTheme } from '../context/ThemeContext';
+import {useAuth} from '../context/AuthContext';
+import { useNavigate } from 'react-router-dom';
 
 // Custom Hooks & Services
 import { useLocation } from '../hooks/useLocation';
@@ -19,7 +24,9 @@ import ActiveMeetup from './ActiveMeetup';
 import Settings from '../components/Settings'; 
 import NotificationPanel from '../components/NotificationPanel';
 
-const TrustBadge = ({ userId, accent }) => {
+
+const TrustBadge = ({ userId }) => {
+    const { accent } = useTheme();
     const [score, setScore] = useState(0);
     useEffect(() => {
         if (!userId) return;
@@ -31,8 +38,9 @@ const TrustBadge = ({ userId, accent }) => {
     return <div className="ms-2 animate__animated animate__fadeIn"><Star size={14} color={accent} fill={accent} /></div>;
 };
 
-// DUAL-MODE TIMER: Ticks in Feed, Pauses in Room until handshake
-const MissionTimer = memo(({ mins, accent, sessionStarted, startedAt, vibeId }) => {
+
+const MissionTimer = memo(({ mins, sessionStarted, startedAt, vibeId }) => {
+  const { accent } = useTheme();
   const [seconds, setSeconds] = useState(mins * 60);
   const isInRoom = typeof sessionStarted === 'boolean';
 
@@ -72,7 +80,8 @@ const MissionTimer = memo(({ mins, accent, sessionStarted, startedAt, vibeId }) 
   );
 });
 
-const SwipeSlider = ({ accent, onComplete, onCancel }) => {
+const SwipeSlider = ({ onComplete, onCancel }) => {
+  const { accent } = useTheme();
   const [sliderValue, setSliderValue] = useState(0);
   const isDragging = useRef(false);
   const handleMouseMove = (e) => {
@@ -99,7 +108,8 @@ const SwipeSlider = ({ accent, onComplete, onCancel }) => {
   );
 };
 
-const CreateVibeForm = memo(({ accent, onSignal, hasActiveVibe, onMobileClose, isModal }) => {
+const CreateVibeForm = memo(({ onSignal, hasActiveVibe, onMobileClose, isModal }) => {
+  const { accent } = useTheme();
   const [text, setText] = useState("");
   const [loc, setLoc] = useState("");
   const [mins, setMins] = useState(15);
@@ -142,7 +152,10 @@ const CreateVibeForm = memo(({ accent, onSignal, hasActiveVibe, onMobileClose, i
   );
 });
 
-const Home = ({ accent, setAccent, onLogout }) => {
+const Home = () => {
+  const { user, status,logout } = useAuth();
+  const { accent, setAccent } = useTheme();
+  const navigate = useNavigate();
   const baseCategories = [{ name: 'All' }, { name: 'Walk' }, { name: 'Study' }, { name: 'Coffee' }, { name: 'Gym' }, { name: 'Other' }];
   const userLoc = useLocation();
   const [filter, setFilter] = useState("All");
@@ -159,8 +172,11 @@ const Home = ({ accent, setAccent, onLogout }) => {
   const [myTrustPoints, setMyTrustPoints] = useState(0);
   const filterIndicatorRef = useRef(null);
   const buttonsRef = useRef([]);
-
   const myActiveVibe = useMemo(() => allVibes.find(v => v.creatorId === auth.currentUser?.uid), [allVibes]);
+  
+ 
+
+
 
   useEffect(() => {
     if (activeConnection) {
@@ -173,11 +189,20 @@ const Home = ({ accent, setAccent, onLogout }) => {
   }, [activeConnection]);
 
   useEffect(() => {
-    if (!auth.currentUser) return;
-    const qUnread = query(collection(db, "notifications"), where("recipientId", "==", auth.currentUser.uid), where("status", "==", "unread"));
-    const unsubscribe = onSnapshot(qUnread, (snapshot) => { setUnreadCount(snapshot.size); });
-    return () => unsubscribe();
-  }, []);
+  if (!auth.currentUser) return;
+  
+  const qUnread = query(
+    collection(db, "notifications"), 
+    where("recipientId", "==", auth.currentUser.uid), 
+    where("status", "==", "unread") 
+  );
+
+  const unsubscribe = onSnapshot(qUnread, (snapshot) => { 
+    setUnreadCount(snapshot.size); 
+  });
+
+  return () => unsubscribe();
+}, [user]); 
 
   useEffect(() => {
     if (!auth.currentUser) return;
@@ -218,16 +243,42 @@ const Home = ({ accent, setAccent, onLogout }) => {
     } catch (err) { toast.error("Failed to terminate"); setVibeToDelete(null); }
   };
 
-  const activeVibeData = useMemo(() => allVibes.find(f => f.id === (activeConnection || myActiveVibe?.id)), [allVibes, activeConnection, myActiveVibe]);
+ 
 
-  const feedVisibleToMe = useMemo(() => {
-      return filteredFeed.filter(vibe => {
-          if (vibe.creatorId === auth.currentUser?.uid) return true;
-          const iBlockedThem = myBlockedUsers.includes(vibe.creatorId);
-          const theyBlockedMe = vibe.blockedUsers?.includes(auth.currentUser?.uid);
-          return !iBlockedThem && !theyBlockedMe;
-      });
-  }, [filteredFeed, myBlockedUsers]);
+
+
+const activeVibeData = useMemo(() => {
+ 
+  if (myActiveVibe) return myActiveVibe;
+  
+  return allVibes.find(f => f.id === activeConnection);
+}, [allVibes, activeConnection, myActiveVibe]);
+
+const feedVisibleToMe = useMemo(() => {
+    return filteredFeed.filter(vibe => {
+       
+        if (vibe.creatorId === auth.currentUser?.uid) return true;
+        const iBlockedThem = myBlockedUsers.includes(vibe.creatorId);
+        const theyBlockedMe = vibe.blockedUsers?.includes(auth.currentUser?.uid);
+        if (iBlockedThem || theyBlockedMe) return false;
+
+       
+        if (userLoc && vibe.coords) {
+            const distance = getDistance(
+                userLoc.lat, 
+                userLoc.lng, 
+                vibe.coords.lat, 
+                vibe.coords.lng
+            );
+            
+          
+            if (distance > 0.5) return false;
+        }
+
+        return true;
+    });
+}, [filteredFeed, myBlockedUsers, userLoc]); 
+       
 
   useEffect(() => {
     if (!isMeetupActive) {
@@ -271,7 +322,7 @@ const Home = ({ accent, setAccent, onLogout }) => {
              <div className="trust-pill d-flex align-items-center gap-2"><Star size={14} color={accent} fill={accent} /><span className="fw-black small" style={{ color: accent }}>{myTrustPoints}</span><span className="text-white-50 fw-bold d-none d-md-inline" style={{ fontSize: '10px' }}>PTS</span></div>
              <div className="d-flex align-items-center gap-2 d-none d-md-flex"><div className="pulse-dot"></div><span className="fw-bold small" style={{ color: accent }}>{filteredFeed.length} NEARBY</span></div>
              
-             {/* RESTORED: Notification Bell */}
+             {/* Notification Bell */}
              <div className="position-relative">
                 <Bell size={22} className="active-click text-white-50" style={{ cursor: 'pointer' }} onClick={() => setIsNotificationsOpen(true)} />
                 {unreadCount > 0 && <div className="position-absolute d-flex align-items-center justify-content-center animate__animated animate__zoomIn" style={{ top: '-6px', right: '-6px', backgroundColor: '#ff4444', color: '#fff', fontSize: '10px', fontWeight: '900', minWidth: '18px', height: '18px', borderRadius: '50%', border: '2px solid #000', pointerEvents: 'none', zIndex: 10 }}>{unreadCount > 9 ? '9+' : unreadCount}</div>}
@@ -285,7 +336,7 @@ const Home = ({ accent, setAccent, onLogout }) => {
         <Row className="g-4">
           {!isMeetupActive && (
             <Col lg={4} className="d-none d-lg-block" style={{ position: 'sticky', top: '100px' }}>
-                <CreateVibeForm accent={accent} onSignal={handleCreateVibe} hasActiveVibe={!!myActiveVibe} />
+                <CreateVibeForm onSignal={handleCreateVibe} hasActiveVibe={!!myActiveVibe} />
                 <div className="p-4 shadow-lg" style={{ backgroundColor: '#16181c', border: '1px solid #2f3336', borderLeft: `6px solid #2f3336`, borderRadius: '24px' }}>
                     <span className="fw-bold small text-white-50 d-block mb-3 text-uppercase">Campus Pulse</span>
                     <div className="d-flex justify-content-between small mb-3 text-white-50"><span>Nearby Nodes</span><span style={{color: accent}} className="fw-bold">{filteredFeed.length} LIVE</span></div>
@@ -298,7 +349,6 @@ const Home = ({ accent, setAccent, onLogout }) => {
             {isMeetupActive ? (
                 <ActiveMeetup 
                    item={activeVibeData || {id: activeConnection}} 
-                   accent={accent} 
                    onEnd={handleEndMeetup} 
                    sessionStarted={activeVibeData?.sessionStarted || false}
                 />
@@ -308,12 +358,12 @@ const Home = ({ accent, setAccent, onLogout }) => {
                     <div className="mb-4 animate__animated animate__fadeIn">
                         <h6 className="fw-bold small text-white-50 mb-3 text-uppercase d-flex align-items-center justify-content-between px-2 px-md-0">
                             <span className="d-flex align-items-center gap-2"><Zap size={14} color={accent} fill={accent}/> My Active Signal</span>
-                            {/* RESTORED: Participant Counter */}
+                           
                             <span style={{color: accent}} className="fw-bold">{myActiveVibe.participantCount}/1 PARTNERS</span>
                         </h6>
                         <div className="d-flex align-items-center gap-3 p-3 px-4 mx-2 mx-md-0" style={{ backgroundColor: '#0d0d0e', border: `1.5 solid ${accent}`, borderRadius: '20px', width: 'fit-content' }}>
                             <div className="text-white fw-bold small text-truncate" style={{maxWidth: '120px'}}>{myActiveVibe.text}</div>
-                            <MissionTimer mins={myActiveVibe.mins} accent={accent} vibeId={myActiveVibe.id} />
+                            <MissionTimer mins={myActiveVibe.mins} vibeId={myActiveVibe.id} />
                             <div className="d-flex gap-3 ms-3">
                                 <LogIn size={22} className={`active-click ${myActiveVibe.participantCount > 0 ? "door-active-blink" : "opacity-25"}`} style={{ cursor: 'pointer', color: accent }} onClick={() => { if(myActiveVibe.participantCount > 0) { setActiveConnection(myActiveVibe.id); setIsMeetupActive(true); } }} />
                                 <Trash2 size={20} className="text-danger active-click cursor-pointer" onClick={() => setVibeToDelete(myActiveVibe.id)} />
@@ -331,32 +381,54 @@ const Home = ({ accent, setAccent, onLogout }) => {
                 </div>
 
                 <Row className="g-3 mt-1 px-2 px-md-0">
-                    {feedVisibleToMe.filter(v => v.creatorId !== auth.currentUser?.uid).map((item) => (
-                    <Col md={6} xs={12} key={item.id}>
-                        <div className="p-4 h-100 d-flex flex-column justify-content-between shadow-sm animate__animated animate__fadeIn" style={{ backgroundColor: '#16181c', border: '1px solid #2f3336', borderLeft: activeConnection === item.id ? `6px solid ${accent}` : `6px solid #2f3336`, borderRadius: '24px', minHeight: '220px' }}>
-                            {activeConnection === item.id ? ( <SwipeSlider accent={accent} onComplete={() => handleJoinVibeConfirm(item)} onCancel={() => setActiveConnection(null)} /> ) : (
-                                <>
-                                <div>
-                                    <div className="d-flex justify-content-between mb-3 align-items-center">
-                                        <div className="d-flex align-items-center">
-                                          <div style={{ color: accent, background: '#000', padding: '10px', borderRadius: '12px', border: '1px solid #2f3336' }}>{item.activityType === 'Study' || item.type === 'Study' ? <BookOpen size={20}/> : <Zap size={20}/>}</div>
-                                          <TrustBadge userId={item.creatorId} accent={accent} />
-                                        </div>
-                                        <div className="text-end">
-                                          <MissionTimer mins={item.mins} accent={accent} vibeId={item.id} />
-                                          <div style={{fontSize: '0.65rem', color: accent}} className="fw-bold mt-1 text-uppercase">{item.distLabel}</div>
-                                        </div>
-                                    </div>
-                                    <h5 className="fw-bold text-white mb-2" style={{ fontSize: '1.1rem' }}>{item.text}</h5>
-                                    <div className="d-flex align-items-center gap-2 text-white-50 small mb-4"><MapPin size={14} color={accent} /> {item.locationName || "Campus Spot"}</div>
-                                </div>
-                                <button onClick={() => setActiveConnection(item.id)} className="count-me-in-btn">Count me in</button>
-                                </>
-                            )}
-                        </div>
-                    </Col>
-                    ))}
-                </Row>
+  {!userLoc ? (
+    // 1. Show this while GPS is warming up to prevent 701m glitches
+    <div className="text-center p-5 text-white-50 animate__animated animate__pulse animate__infinite">
+      <MapPin size={32} color={accent} className="mb-3" />
+      <p className="fw-bold">LOCKING GPS SIGNAL...</p>
+    </div>
+  ) : feedVisibleToMe.filter(v => v.creatorId !== auth.currentUser?.uid).length === 0 ? (
+    // 2. Show this if everyone is > 500m away
+    <div className="text-center p-5 text-white-50 animate__animated animate__fadeIn">
+      <Zap size={32} color="#333" className="mb-3" />
+      <p className="fw-bold">NO VIBES IN RADIUS (500m)</p>
+    </div>
+  ) : (
+    // 3. Show only the vibes that passed the distance filter
+    feedVisibleToMe.filter(v => v.creatorId !== auth.currentUser?.uid).map((item) => (
+      <Col md={6} xs={12} key={item.id}>
+        <div className="p-4 h-100 d-flex flex-column justify-content-between shadow-sm animate__animated animate__fadeIn" style={{ backgroundColor: '#16181c', border: '1px solid #2f3336', borderLeft: activeConnection === item.id ? `6px solid ${accent}` : `6px solid #2f3336`, borderRadius: '24px', minHeight: '220px' }}>
+          {activeConnection === item.id ? ( 
+            <SwipeSlider onComplete={() => handleJoinVibeConfirm(item)} onCancel={() => setActiveConnection(null)} /> 
+          ) : (
+            <>
+              <div>
+                <div className="d-flex justify-content-between mb-3 align-items-center">
+                  <div className="d-flex align-items-center">
+                    <div style={{ color: accent, background: '#000', padding: '10px', borderRadius: '12px', border: '1px solid #2f3336' }}>
+                      {item.activityType === 'Study' || item.type === 'Study' ? <BookOpen size={20}/> : <Zap size={20}/>}
+                    </div>
+                    <TrustBadge userId={item.creatorId} />
+                  </div>
+                  <div className="text-end">
+                    <MissionTimer mins={item.mins} vibeId={item.id} />
+                  
+                    <div style={{fontSize: '0.65rem', color: accent}} className="fw-bold mt-1 text-uppercase">
+                      {Math.round(getDistance(userLoc.lat, userLoc.lng, item.coords.lat, item.coords.lng) * 1000)}m AWAY
+                    </div>
+                  </div>
+                </div>
+                <h5 className="fw-bold text-white mb-2" style={{ fontSize: '1.1rem' }}>{item.text}</h5>
+                <div className="d-flex align-items-center gap-2 text-white-50 small mb-4"><MapPin size={14} color={accent} /> {item.locationName || "Campus Spot"}</div>
+              </div>
+              <button onClick={() => setActiveConnection(item.id)} className="count-me-in-btn">Count me in</button>
+            </>
+          )}
+        </div>
+      </Col>
+    ))
+  )}
+</Row>
                 </>
             )}
           </Col>
@@ -364,11 +436,11 @@ const Home = ({ accent, setAccent, onLogout }) => {
       </Container>
       
       {!isMeetupActive && !myActiveVibe && <button className="fab-btn active-click" onClick={() => setShowMobileCreate(true)}><Plus size={32} /></button>}
-      <Modal show={showMobileCreate} onHide={() => setShowMobileCreate(false)} centered contentClassName="bg-transparent border-0"><CreateVibeForm accent={accent} onSignal={handleCreateVibe} hasActiveVibe={!!myActiveVibe} onMobileClose={() => setShowMobileCreate(false)} isModal={true} /></Modal>
+      <Modal show={showMobileCreate} onHide={() => setShowMobileCreate(false)} centered contentClassName="bg-transparent border-0"><CreateVibeForm onSignal={handleCreateVibe} hasActiveVibe={!!myActiveVibe} onMobileClose={() => setShowMobileCreate(false)} isModal={true} /></Modal>
       <Modal show={!!vibeToDelete} onHide={() => setVibeToDelete(null)} centered contentClassName="bg-black border-dark rounded-5"><Modal.Body className="text-center p-5"><AlertTriangle size={40} color="#ff4444" className="mb-3" /><h4 className="fw-black text-white">TERMINATE SIGNAL?</h4><div className="d-grid gap-2 mt-4"><Button onClick={handleTerminateSignal} className="py-3 fw-bold border-0 active-click" style={{ backgroundColor: '#ff4444', borderRadius: '15px' }}>YES, TERMINATE</Button><Button variant="link" onClick={() => setVibeToDelete(null)} className="text-white-50 text-decoration-none fw-bold mt-2">BACK</Button></div></Modal.Body></Modal>
       
-      <Settings isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} currentAccent={accent} setAccent={setAccent} onLogout={onLogout} />
-      <NotificationPanel isOpen={isNotificationsOpen} onClose={() => setIsNotificationsOpen(false)} accent={accent} />
+      <Settings isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} onLogout={logout} />
+      <NotificationPanel isOpen={isNotificationsOpen} onClose={() => setIsNotificationsOpen(false)}/>
     </div>
   );
 };

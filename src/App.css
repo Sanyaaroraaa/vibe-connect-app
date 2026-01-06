@@ -1,0 +1,819 @@
+/* Container & Layout */
+.hero-scroll-container {
+  height: 100vh;
+  width: 100vw;
+  background: #000;
+  position: relative;
+  overflow: hidden;
+}
+
+/* TOP NAV */
+.hero-nav-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  padding: 40px 60px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  z-index: 100;
+}
+
+.logo-glow {
+  filter: drop-shadow(0 0 8px rgba(255, 107, 107, 0.4));
+}
+
+/* MIRROR BLUR BUTTONS */
+.mirror-btn {
+  background: rgba(255, 255, 255, 0.03);
+  backdrop-filter: blur(15px);
+  -webkit-backdrop-filter: blur(15px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: #fff;
+  padding: 12px 28px;
+  border-radius: 14px;
+  font-weight: 800;
+  font-size: 0.75rem;
+  letter-spacing: 1.5px;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  text-transform: uppercase;
+}
+
+.mirror-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.2);
+  transform: translateY(-2px);
+}
+
+.mirror-btn.accent-border {
+  border: 1px solid var(--accent);
+  box-shadow: 0 0 20px rgba(0, 0, 0, 0.4);
+}
+
+/* VIDEO MASK - FIXED FOR NO CROPPING */
+.video-mask-wrapper {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  background: #000;
+}
+
+.hero-video-element {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover; /* Ensures video fills screen on all devices */
+}
+
+/* BRANDING POSITIONING */
+.hero-content-overlay-corner {
+  position: absolute;
+  top: 40%;
+  left: 15vw;
+  z-index: 10;
+  pointer-events: none;
+}
+
+.hero-title-corner {
+  font-family: "Inter", sans-serif;
+  font-size: 13vw;
+  font-weight: 900;
+  color: #ffffff;
+  margin: 0;
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center;
+  line-height: 1;
+  white-space: nowrap; /* Prevents CONNECT from breaking into two lines */
+}
+
+/* SIDE TEXT CLASS (Missing previously) */
+.side-text {
+  display: inline-block;
+}
+
+.o-space-corner {
+  position: relative;
+  width: 10vw;
+  height: 10vw;
+  margin: 0 0.6vw;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.ring-container {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.ring {
+  position: absolute;
+  border: 3px solid;
+  border-radius: 50%;
+}
+
+.ring-outer {
+  width: 100%;
+  height: 100%;
+  opacity: 0.6;
+}
+.ring-inner {
+  width: 70%;
+  height: 70%;
+  opacity: 0.3;
+}
+
+/* MAP & MISSION TEXT */
+.hero-map-bg-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+}
+
+.mission-tag {
+  position: absolute;
+  top: 22%;
+  right: 18%;
+  font-family: "Inter", sans-serif;
+  color: #fff;
+  font-size: 0.75rem;
+  opacity: 0.4;
+  text-transform: uppercase;
+  text-align: right;
+}
+
+.vibe-callout {
+  bottom: 25%;
+  left: 35%;
+  font-size: 1.5rem;
+  font-weight: 300;
+  opacity: 0.4;
+  position: absolute;
+  color: #fff;
+}
+
+.badge-pill-bg {
+  position: absolute;
+  top: 15%;
+  left: 50%;
+  transform: translateX(-50%);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 6px 12px;
+  border-radius: 20px;
+  font-size: 0.65rem;
+  color: rgba(255, 255, 255, 0.4);
+}
+
+/* RESPONSIVE SCALING */
+@media (max-width: 768px) {
+  .hero-content-overlay-corner {
+    left: 10vw;
+    top: 45%;
+  }
+  .hero-title-corner {
+    font-size: 15vw;
+  }
+  .o-space-corner {
+    width: 14vw;
+    height: 14vw;
+  }
+  .mission-tag {
+    font-size: 0.5rem;
+    top: 25%;
+    right: 10%;
+  }
+  .vibe-callout {
+    font-size: 1rem;
+    left: 10%;
+    bottom: 20%;
+    width: 80%;
+  }
+  .hero-scroll-container {
+    height: 100vh;
+  }
+  .hero-nav-overlay {
+    padding: 10px 10px;
+  }
+  .mirror-btn {
+    padding: 12px 20px;
+  }
+}
+
+/*features*/
+.features-section {
+  position: relative;
+  overflow: hidden;
+  background: #000;
+}
+
+.cute-title {
+  font-size: clamp(3rem, 12vw, 6rem);
+  font-weight: 950;
+  color: #fff;
+  letter-spacing: -4px;
+  line-height: 0.9;
+}
+
+.stack-container {
+  position: relative;
+  height: 500px;
+  width: 90%;
+  max-width: 380px;
+  margin: 40px auto;
+  display: flex;
+  justify-content: center;
+}
+
+.swipe-card {
+  position: absolute;
+  width: 100%;
+  height: 440px;
+  border-radius: 40px;
+  padding: 32px;
+  cursor: grab;
+  border: 4px solid #000;
+  box-shadow: 12px 12px 0px #000; /* Chunky Neubrutalism Shadow */
+  touch-action: none;
+}
+
+.card-inner {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.card-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.icon-badge {
+  background: rgba(0, 0, 0, 0.08);
+  padding: 12px;
+  border-radius: 20px;
+  border: 2px solid rgba(0, 0, 0, 0.1);
+}
+
+.emoji-pill {
+  background: #fff;
+  border: 2px solid #000;
+  padding: 5px 12px;
+  border-radius: 50px;
+  font-size: 1.5rem;
+  box-shadow: 4px 4px 0px #000;
+}
+
+.feature-headline {
+  font-weight: 900;
+  font-size: 2.2rem;
+  letter-spacing: -1.5px;
+  line-height: 1;
+  margin-bottom: 12px;
+  text-transform: lowercase;
+}
+
+.feature-desc {
+  font-weight: 600;
+  font-size: 1rem;
+  line-height: 1.4;
+  opacity: 0.8;
+  margin: 0;
+}
+
+.swipe-instruction {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-family: monospace;
+  font-weight: 900;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  margin-top: 20px;
+}
+
+.arrow-anim {
+  animation: slideArrow 1s infinite alternate;
+}
+
+@keyframes slideArrow {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(10px);
+  }
+}
+
+/* Mobile Responsiveness */
+@media (max-width: 480px) {
+  .stack-container {
+    height: 420px;
+    max-width: 320px;
+  }
+  .swipe-card {
+    height: 380px;
+    padding: 24px;
+    border-radius: 30px;
+  }
+  .feature-headline {
+    font-size: 1.8rem;
+  }
+}
+
+/*about*/
+.about-section-new {
+  background: #000;
+  position: relative;
+  overflow: hidden;
+  padding: 20px 0;
+}
+
+.tech-line-svg {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* TYPOGRAPHY */
+.massive-outline {
+  font-size: clamp(4rem, 12vw, 10rem);
+  font-weight: 950;
+  line-height: 0.8;
+  color: transparent;
+  -webkit-text-stroke: 1.5px rgba(255, 255, 255, 0.2);
+  letter-spacing: -5px;
+  z-index: 1;
+  will-change: transform;
+}
+
+.massive-outline .filled {
+  color: var(--accent);
+  -webkit-text-stroke: 0px;
+}
+
+/* GLASS TILES */
+.glass-tile {
+  background: rgba(255, 255, 255, 0.03);
+  backdrop-filter: blur(25px);
+  -webkit-backdrop-filter: blur(25px);
+  padding: 45px;
+  border-radius: 35px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  position: relative;
+  z-index: 2;
+  opacity: 0; /* Handled by GSAP */
+  will-change: opacity, transform;
+}
+
+.border-top-glow {
+  border-top: 4px solid var(--glow) !important;
+  box-shadow: 0 -15px 40px -20px var(--glow);
+}
+
+.fw-black {
+  font-weight: 900;
+}
+
+/* IMAGE MASKS */
+.img-mask {
+  width: 100%;
+  aspect-ratio: 16/10;
+  overflow: hidden;
+  position: relative;
+  z-index: 1;
+  border-radius: 40px;
+  background: rgba(255, 255, 255, 0.02);
+  will-change: clip-path, opacity, transform;
+}
+
+.inner-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  /* Slight zoom effect inside the mask */
+  transform: scale(1.1);
+  transition: transform 0.8s ease-out;
+}
+
+.img-mask:hover .inner-img {
+  transform: scale(1.05);
+}
+
+@media (max-width: 768px) {
+  .massive-outline {
+    font-size: 4rem;
+    letter-spacing: -2px;
+    line-height: 0.9;
+  }
+  .img-mask {
+    aspect-ratio: 4/3;
+  }
+  .glass-tile {
+    padding: 30px;
+  }
+  .about-section-new {
+    padding: 0;
+  }
+}
+/* MOBILE-ONLY REFINEMENTS */
+@media (max-width: 576px) {
+  /* 1. Prevent section overlapping and ensure full height feel */
+  .about-section-new {
+    padding: 20px 0;
+  }
+
+  /* 2. Fix the Massive Outline text from overflowing horizontally */
+  .massive-outline {
+    font-size: 3.5rem; /* Reduced for small screens */
+    letter-spacing: -1px;
+    margin-bottom: 20px;
+    line-height: 1;
+  }
+
+  /* 3. Adjust Rows for mobile flow */
+  .about-section-new .min-vh-100 {
+    min-height: auto !important; /* Prevents huge empty gaps on small screens */
+    padding: 60px 0;
+  }
+
+  /* 4. Fix Glass Tiles - Tighter padding and centered text */
+  .glass-tile {
+    padding: 24px;
+    border-radius: 20px;
+    margin-top: -20px; /* Overlap slightly with image for tech look */
+    text-align: center;
+  }
+
+  .glass-tile p.lead {
+    font-size: 1rem !important;
+    line-height: 1.5;
+  }
+
+  /* 5. Image Masks - Circular/Tech look for mobile */
+  .img-mask {
+    aspect-ratio: 1/1; /* Square images look better on mobile stacks */
+    border-radius: 30px;
+    margin-bottom: 10px;
+  }
+
+  /* 6. Fix Row Order */
+  .row.align-items-center {
+    display: flex;
+    flex-direction: column !important; /* Force vertical stack */
+    gap: 20px;
+  }
+
+  /* Ensure the "500M zone" row follows the same pattern */
+  .order-lg-2 {
+    order: 1 !important;
+  }
+  .order-lg-1 {
+    order: 2 !important;
+  }
+
+  /* 7. Hide the tech line on very small screens to reduce clutter */
+  .tech-line-svg {
+    opacity: 0.1;
+  }
+}
+
+/*footer*/
+.footer-section {
+  background: #000;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  position: relative;
+  z-index: 10;
+}
+
+.footer-label {
+  color: var(--accent);
+  font-family: monospace;
+  text-transform: uppercase;
+  font-size: 0.75rem;
+  letter-spacing: 3px;
+  margin-bottom: 25px;
+}
+
+.footer-links {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.footer-links li {
+  margin-bottom: 12px;
+}
+
+.footer-links a {
+  color: rgba(255, 255, 255, 0.5);
+  text-decoration: none;
+  font-size: 0.9rem;
+  transition: color 0.3s ease;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.footer-links a:hover {
+  color: #fff;
+}
+
+/* System Status Box */
+/* FOOTER WRAPPER */
+.footer-wrapper {
+  background: #000;
+  color: #fff;
+}
+
+/* FINAL CTA BLOCK */
+.final-cta-block {
+  padding: 120px 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.cta-glow-core {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 60vw;
+  height: 60vw;
+  background: radial-gradient(circle, var(--accent) 0%, transparent 70%);
+  opacity: 0.1;
+  z-index: 0;
+}
+
+.scanner-beam {
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 50%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.03),
+    transparent
+  );
+  transform: skewX(-25deg);
+  animation: scan 8s infinite;
+}
+
+@keyframes scan {
+  0% {
+    left: -100%;
+  }
+  30% {
+    left: 150%;
+  }
+  100% {
+    left: 150%;
+  }
+}
+
+.mission-text {
+  max-width: 400px;
+  letter-spacing: 0.5px;
+}
+
+.launch-btn {
+  padding: 20px 50px;
+  font-size: 1rem;
+  box-shadow: 0 0 30px rgba(0, 0, 0, 0.5);
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.coordinate-stamp {
+  opacity: 0.2;
+  letter-spacing: 5px;
+}
+
+/* FOOTER NAV BLOCK */
+
+.footer-wrapper {
+  background: #000;
+  color: #fff;
+}
+
+/* FINAL CTA BLOCK */
+.final-cta-block {
+  padding: 100px 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.cta-glow-core {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 60vw;
+  height: 60vw;
+  opacity: 0.1; /* Keeps the glow atmospheric rather than blinding */
+  z-index: 0;
+}
+
+.scanner-beam {
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 50%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.03),
+    transparent
+  );
+  transform: skewX(-25deg);
+  animation: scan 8s infinite;
+}
+
+@keyframes scan {
+  0% {
+    left: -100%;
+  }
+  30% {
+    left: 150%;
+  }
+  100% {
+    left: 150%;
+  }
+}
+
+.launch-btn {
+  padding: 20px 50px;
+  font-size: 1rem;
+  border: 1px solid var(--accent) !important;
+  color: #fff;
+  background: rgba(255, 255, 255, 0.02);
+  box-shadow: 0 0 30px rgba(0, 0, 0, 0.5);
+  transition: all 0.3s ease;
+}
+
+.launch-btn:hover {
+  background: var(--accent);
+  color: #000;
+  box-shadow: 0 0 40px var(--accent);
+}
+
+.coordinate-stamp {
+  opacity: 0.2;
+  letter-spacing: 5px;
+}
+
+/* FOOTER NAV BLOCK */
+/* FOOTER WRAPPER */
+.footer-wrapper {
+  background: #000;
+  border-top: 2px solid #1a1a1a;
+}
+
+/* FINAL CTA */
+.final-cta-block {
+  padding: 140px 0;
+}
+
+/* Neubrutalist Button Style from your Features */
+.launch-mission-btn {
+  background: var(--accent);
+  color: #000;
+  border: 4px solid #000;
+  padding: 18px 40px;
+  border-radius: 50px;
+  font-weight: 900;
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  box-shadow: 8px 8px 0px #000;
+  transition: all 0.2s ease;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.launch-mission-btn:hover {
+  transform: translate(-2px, -2px);
+  box-shadow: 12px 12px 0px #000;
+}
+
+.launch-mission-btn:active {
+  transform: translate(4px, 4px);
+  box-shadow: 0px 0px 0px #000;
+}
+
+/* Terminal Pills */
+.status-pill-terminal {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  background: #111;
+  border: 1px solid #333;
+  padding: 6px 16px;
+  border-radius: 4px;
+}
+
+.social-pill-link {
+  width: 50px;
+  height: 50px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #fff;
+  color: #000;
+  border: 3px solid #000;
+  border-radius: 12px;
+  box-shadow: 4px 4px 0px #000;
+  transition: all 0.2s ease;
+}
+
+.social-pill-link:hover {
+  background: var(--accent);
+  transform: translateY(-4px);
+  box-shadow: 8px 8px 0px #000;
+}
+
+/* Utility Links */
+.utility-grid {
+  display: flex;
+  gap: 20px;
+  justify-content: flex-end;
+}
+
+.utility-grid a {
+  color: #666;
+  text-decoration: none;
+  font-size: 0.75rem;
+  transition: color 0.2s;
+}
+
+.utility-grid a:hover {
+  color: var(--accent);
+}
+
+/* Coordinate Stamp Animation */
+.coordinate-stamp {
+  opacity: 0.3;
+  letter-spacing: 6px;
+  animation: flickerCoords 4s infinite;
+}
+
+@keyframes flickerCoords {
+  0%,
+  100% {
+    opacity: 0.3;
+  }
+  50% {
+    opacity: 0.1;
+  }
+  55% {
+    opacity: 0.4;
+  }
+}
+
+/* RESPONSIVE FOOTER */
+@media (max-width: 992px) {
+  .final-cta-block {
+    padding: 100px 0;
+  }
+  .massive-outline {
+    font-size: 16vw;
+  }
+  .utility-grid {
+    justify-content: center;
+    margin-top: 10px;
+  }
+}
+
+@media (max-width: 576px) {
+  .launch-mission-btn {
+    padding: 15px 30px;
+    font-size: 0.9rem;
+    width: 90%;
+    justify-content: center;
+  }
+  .massive-outline {
+    font-size: 18vw;
+    line-height: 1;
+  }
+  .mission-text {
+    font-size: 0.9rem;
+    width: 85%;
+  }
+  .status-pill-terminal {
+    width: 100%;
+    justify-content: center;
+  }
+}

@@ -16,22 +16,27 @@ import { doc, getDoc, setDoc, serverTimestamp } from "firebase/firestore";
 import { submitStudentId } from "../services/authService";
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
+import { useLocation } from 'react-router-dom';
+import { useTheme } from '../context/ThemeContext';
 
-// This pulls your UID from the .env file
+
 const MY_ADMIN_UID = import.meta.env.VITE_FIREBASE_UID; 
 
-const Login = ({ onLogin, accent }) => {
+const Login = ({ onLogin}) => {
+  const { accent } = useTheme();
   const provider = new GoogleAuthProvider();
+  const location = useLocation();
   const cardRef = useRef(null);
-  
-  const [step, setStep] = useState('landing'); 
-  const [isSignUp, setIsSignUp] = useState(false);
+  const isInitialSignUp = location.state?.initialSignUp || false;
+  const [step, setStep] = useState(location.state ? 'auth' : 'landing'); 
+  const [isSignUp, setIsSignUp] = useState(isInitialSignUp);
   const [showPassword, setShowPassword] = useState(false);
   const [strength, setStrength] = useState(0);
   const [file, setFile] = useState(null);
   const [uploading, setUploading] = useState(false);
+ 
 
-  // --- Step-based Animations ---
+ 
   useEffect(() => {
     gsap.fromTo(cardRef.current, 
       { scale: 0.98, opacity: 0, y: 15 }, 
@@ -48,17 +53,16 @@ const Login = ({ onLogin, accent }) => {
     setStrength(s);
   };
 
-  /**
-   * CORE LOGIC: Gating the User Experience
-   */
+
+   
   const syncUserToFirestore = async (user, customName = null) => {
     // 1. THE ADMIN FAST-TRACK
-    // If your UID matches the env variable, we bypass everything.
+    
     if (user && user.uid === MY_ADMIN_UID) {
       console.log("Admin Node Detected. Bypassing Gating.");
       toast.success("Welcome back, Commander", { theme: "dark" });
       
-      // Delay slightly to let the toast show, then call onLogin()
+     
       setTimeout(() => {
         onLogin(); 
       }, 800);
@@ -133,12 +137,12 @@ const Login = ({ onLogin, accent }) => {
     const toastId = toast.loading("AI Scanning ID Card...");
 
     try {
-      await submitStudentId(file); // This calls your Tesseract logic
+      await submitStudentId(file); 
       toast.update(toastId, { 
         render: "Upload Success! Admin will verify you soon.", 
         type: "success", isLoading: false, autoClose: 4000 
       });
-      // Stay on 'verify' step - status is now 'pending' in Firestore
+     
     } catch (err) {
       toast.update(toastId, { render: err.message, type: "error", isLoading: false, autoClose: 3000 });
     } finally {
@@ -163,7 +167,7 @@ const Login = ({ onLogin, accent }) => {
                     <div className="mb-4 d-inline-block p-4 rounded-circle" style={{ background: `${accent}10`, border: `2px solid ${accent}` }}>
                       <Zap size={56} color={accent} fill={accent} />
                     </div>
-                    <h1 className="fw-bold text-white mb-2" style={{ fontSize: '3.2rem', letterSpacing: '-2px' }}>Connect</h1>
+                    <h1 className="fw-bold text-white mb-2" style={{ fontSize: '3.2rem', letterSpacing: '-2px' }}>connect.</h1>
                     <p className="text-white-50 mb-5 fs-5">Campus life, simplified.</p>
                     <div className="d-grid gap-3">
                       <Button onClick={() => { setIsSignUp(true); setStep('auth'); }} className="py-3 fw-bold border-0 accent-btn" style={{ backgroundColor: accent, color: '#000', borderRadius: '15px' }}>Join Campus</Button>
@@ -184,7 +188,7 @@ const Login = ({ onLogin, accent }) => {
                            <User size={18} className="position-absolute top-50 end-0 translate-middle-y me-3 text-white-50" />
                          </div>
                       )}
-                      <Form.Control name="email" type="email" placeholder="Campus Email" style={inputStyle} className="mb-3 custom-placeholder shadow-none" required />
+                      <Form.Control name="email" type="email" placeholder="Email" style={inputStyle} className="mb-3 custom-placeholder shadow-none" required />
                       
                       <div className="position-relative mb-1">
                         <Form.Control name="password" type={showPassword ? "text" : "password"} placeholder="Password" style={inputStyle} onChange={(e) => checkStrength(e.target.value)} className="shadow-none w-100 custom-placeholder" required />

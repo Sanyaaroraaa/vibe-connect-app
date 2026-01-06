@@ -7,7 +7,7 @@ export async function submitStudentId(file) {
   if (!user) throw new Error("Authentication required to upload ID.");
 
   try {
-    // 1. AI OCR SCAN (Checks for university keywords)
+    
     const { data: { text } } = await Tesseract.recognize(file, 'eng', {
       logger: m => console.log(m.status + ": " + Math.round(m.progress * 100) + "%")
     });
@@ -19,7 +19,7 @@ export async function submitStudentId(file) {
       throw new Error("AI Scan: Could not detect university keywords. Please take a clearer photo of the text on your ID.");
     }
 
-    // 2. IMAGE COMPRESSION (Canvas logic)
+ 
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
       reader.readAsDataURL(file);
@@ -28,7 +28,7 @@ export async function submitStudentId(file) {
         img.src = event.target.result;
         img.onload = async () => {
           const canvas = document.createElement('canvas');
-          const MAX_WIDTH = 600; // Increased slightly for better admin viewing
+          const MAX_WIDTH = 600; 
           const scaleSize = MAX_WIDTH / img.width;
           canvas.width = MAX_WIDTH;
           canvas.height = img.height * scaleSize;
@@ -36,12 +36,12 @@ export async function submitStudentId(file) {
           const ctx = canvas.getContext('2d');
           ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
 
-          // Quality set to 0.5 to balance clarity and Firestore's 1MB limit
+       
           const compressedBase64 = canvas.toDataURL('image/jpeg', 0.5);
 
           try {
             const userRef = doc(db, "users", user.uid);
-            // Use updateDoc instead of setDoc to prevent overwriting existing name/email
+         
             await updateDoc(userRef, {
               idCardBase64: compressedBase64,
               status: "pending", 
@@ -57,6 +57,6 @@ export async function submitStudentId(file) {
       reader.onerror = () => reject(new Error("Failed to read image file."));
     });
   } catch (err) {
-    throw err; // Bubbles up to the UI toast
+    throw err; 
   }
 }

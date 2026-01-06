@@ -30,7 +30,7 @@ const VerifyID = ({ onComplete }) => {
     setScanStatus("Initializing AI...");
 
     try {
-      // 1. Tesseract OCR with Progress Tracking
+     
       const { data: { text } } = await Tesseract.recognize(file, 'eng', {
         logger: m => {
           if (m.status === 'recognizing text') {
@@ -40,7 +40,6 @@ const VerifyID = ({ onComplete }) => {
         }
       });
 
-      // 2. Keyword Validation
       const keywords = ["university", "student", "identity", "valid", "card", "college"];
       const isID = keywords.some(word => text.toLowerCase().includes(word));
 

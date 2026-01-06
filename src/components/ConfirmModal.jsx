@@ -17,12 +17,11 @@ const ConfirmModal = ({
       show={show} 
       onHide={onHide} 
       centered 
-      // 🔥 Added "mx-3" for mobile margins and "max-width" for desktop
       dialogClassName="confirm-modal-dialog mx-3 mx-sm-auto"
       contentClassName="bg-black border-dark rounded-5 shadow-lg border-0"
       backdropClassName="modal-backdrop-blur"
     >
-      {/* Top Close Button - Padded for touch targets */}
+      
       <div className="p-3 p-md-4 d-flex justify-content-end">
         <div 
           onClick={onHide} 
@@ -34,7 +33,7 @@ const ConfirmModal = ({
       </div>
 
       <Modal.Body className="text-center px-4 px-md-5 pb-5 pt-0">
-        {/* Responsive Icon Container */}
+      
         <div 
           className="mb-4 d-inline-block p-3 p-md-4 rounded-circle animate__animated animate__pulse animate__infinite" 
           style={{ backgroundColor: isDanger ? '#ff444415' : `${accent}15` }}
@@ -46,12 +45,12 @@ const ConfirmModal = ({
           )}
         </div>
 
-        {/* Title - Responsive font size */}
+        
         <h3 className="fw-black text-white mb-2 responsive-h3" style={{ letterSpacing: '-0.5px' }}>
           {title?.toUpperCase()}
         </h3>
         
-        {/* Message - Responsive font size */}
+       
         <p className="text-white-50 mb-4 px-1" style={{ fontSize: '0.9rem', lineHeight: '1.5' }}>
           {message}
         </p>
