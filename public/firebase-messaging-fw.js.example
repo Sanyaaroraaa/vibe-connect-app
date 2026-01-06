@@ -3,17 +3,17 @@ importScripts('https://www.gstatic.com/firebasejs/9.0.0/firebase-app-compat.js')
 importScripts('https://www.gstatic.com/firebasejs/9.0.0/firebase-messaging-compat.js');
 
 firebase.initializeApp({
-  apiKey: "YOUR_API_KEY",          
-  projectId: "YOUR_PROJECT_ID", 
-  messagingSenderId: "YOUR_SENDER_ID", 
-  appId: "YOUR_APP_ID"
+  apiKey: "PLACEHOLDER_API_KEY",
+  projectId: "PLACEHOLDER_PROJECT_ID",
+  messagingSenderId: "PLACEHOLDER_SENDER_ID",
+  appId: "PLACEHOLDER_APP_ID"
 });
 
 const messaging = firebase.messaging();
 
 
 messaging.onBackgroundMessage((payload) => {
-  console.log('[firebase-messaging-sw.js] Background message received: ', payload);
+  console.log('[firebase-messaging-fw.js] Background message received: ', payload);
   
   const notificationTitle = payload.notification.title || "New Vibe Alert";
   const notificationOptions = {
