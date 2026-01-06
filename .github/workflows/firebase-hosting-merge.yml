@@ -21,11 +21,11 @@ jobs:
           sed -i "s|PLACEHOLDER_STORAGE_BUCKET|${{ secrets.VITE_FIREBASE_STORAGE_BUCKET }}|g" public/firebase-messaging-fw.js.example
           sed -i "s|PLACEHOLDER_SENDER_ID|${{ secrets.VITE_FIREBASE_MESSAGING_SENDER_ID }}|g" public/firebase-messaging-fw.js.example
           sed -i "s|PLACEHOLDER_APP_ID|${{ secrets.VITE_FIREBASE_APP_ID }}|g" public/firebase-messaging-fw.js.example
-        
-          cp public/firebase-messaging-fw.js.example public/firebase-messaging-sw.js
+          # This copies the EXAMPLE into the REAL file name
+          cp public/firebase-messaging-fw.js.example public/firebase-messaging-fw.js
 
-      # STEP 2: Build the React App
-      - run: npm ci && npm run build
+      # STEP 2: Build the React App (FIXED WITH LEGACY FLAG)
+      - run: npm install --legacy-peer-deps && npm run build
         env:
           VITE_FIREBASE_API_KEY: ${{ secrets.VITE_FIREBASE_API_KEY }}
           VITE_FIREBASE_AUTH_DOMAIN: ${{ secrets.VITE_FIREBASE_AUTH_DOMAIN }}
