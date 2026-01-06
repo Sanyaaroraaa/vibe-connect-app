@@ -6,7 +6,7 @@ import { Features } from '../section/Features';
 import AboutSection from '../section/AboutSection';
 import Footer from '../section/Footer';
 
-const Landing = ({ accent = "'#C1FF72" }) => {
+const Landing = ({ accent = "#C1FF72" }) => {
   const videoSource = "hv.mp4"; 
 
   useEffect(() => {

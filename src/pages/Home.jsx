@@ -8,6 +8,8 @@ import { toast, ToastContainer } from 'react-toastify';
 import { auth, db } from "../config/firebase"; 
 import { getDoc, doc, collection, query, where, onSnapshot, updateDoc, setDoc, serverTimestamp, deleteDoc } from "firebase/firestore";
 import { getDistance } from '../utils/geoUtils';
+import VibeHeatmap from '../components/VibeHeatmap';
+import OnboardingTour from '../components/OnboardingTour';
 
 // Context & Navigation
 import { useTheme } from '../context/ThemeContext';
@@ -292,6 +294,7 @@ const feedVisibleToMe = useMemo(() => {
 
   return (
     <div style={{ backgroundColor: '#000', minHeight: '100vh', width: '100%', color: '#fff', fontFamily: "'Outfit', sans-serif" }}>
+      <OnboardingTour ready={!!userLoc} />
       <ToastContainer position="bottom-right" theme="dark" hideProgressBar />
       <style>{`
         html, body, #root { background-color: #000 !important; }
@@ -334,16 +337,36 @@ const feedVisibleToMe = useMemo(() => {
 
       <Container className="py-4">
         <Row className="g-4">
-          {!isMeetupActive && (
-            <Col lg={4} className="d-none d-lg-block" style={{ position: 'sticky', top: '100px' }}>
-                <CreateVibeForm onSignal={handleCreateVibe} hasActiveVibe={!!myActiveVibe} />
-                <div className="p-4 shadow-lg" style={{ backgroundColor: '#16181c', border: '1px solid #2f3336', borderLeft: `6px solid #2f3336`, borderRadius: '24px' }}>
-                    <span className="fw-bold small text-white-50 d-block mb-3 text-uppercase">Campus Pulse</span>
-                    <div className="d-flex justify-content-between small mb-3 text-white-50"><span>Nearby Nodes</span><span style={{color: accent}} className="fw-bold">{filteredFeed.length} LIVE</span></div>
-                    <div className="d-flex justify-content-between small text-white-50"><span>Radius Check</span><span style={{color: accent}}>500m</span></div>
-                </div>
-            </Col>
-          )}
+     {!isMeetupActive && (
+  <Col lg={4} className="d-none d-lg-block" style={{ position: 'sticky', top: '100px' }}>
+    {/* 1. Form stays on top */}
+    <CreateVibeForm onSignal={handleCreateVibe} hasActiveVibe={!!myActiveVibe} />
+
+    {/* 2. Map moved below the form with a terminal-style wrapper */}
+    <div className="p-0 rounded-4 mt-4 overflow-hidden shadow-lg" style={{ backgroundColor: '#111', border: '1px solid #222' }}>
+      <div className="p-3 border-bottom border-dark">
+        <h6 className="fw-black small text-white-50 mb-0 text-uppercase d-flex align-items-center gap-2">
+          <div className="pulse-dot-mini" style={{ backgroundColor: accent, width: '8px', height: '8px', borderRadius: '50%' }}></div>
+          Local Node Density
+        </h6>
+      </div>
+      
+      <VibeHeatmap 
+        vibes={allVibes} 
+        center={userLoc ? [userLoc.lat, userLoc.lng] : null} 
+      />
+      
+      <div className="p-3">
+        <div className="d-flex justify-content-between small text-white-50">
+          <span>Active Signals:</span>
+          <span className="fw-bold" style={{ color: accent }}>{allVibes.length}</span>
+        </div>
+      </div>
+    </div>
+  </Col>
+)}
+                
+               
           
           <Col lg={isMeetupActive ? 12 : 8} xs={12}>
             {isMeetupActive ? (
@@ -395,10 +418,21 @@ const feedVisibleToMe = useMemo(() => {
     </div>
   ) : (
     // 3. Show only the vibes that passed the distance filter
-    feedVisibleToMe.filter(v => v.creatorId !== auth.currentUser?.uid).map((item) => (
-      <Col md={6} xs={12} key={item.id}>
-        <div className="p-4 h-100 d-flex flex-column justify-content-between shadow-sm animate__animated animate__fadeIn" style={{ backgroundColor: '#16181c', border: '1px solid #2f3336', borderLeft: activeConnection === item.id ? `6px solid ${accent}` : `6px solid #2f3336`, borderRadius: '24px', minHeight: '220px' }}>
-          {activeConnection === item.id ? ( 
+    
+      feedVisibleToMe.filter(v => v.creatorId !== auth.currentUser?.uid).map((item) => (
+      <Col md={6} xs={12} key={item.id} id={`vibe-card-${item.id}`}> 
+        <div 
+          className="p-4 h-100 d-flex flex-column justify-content-between shadow-sm animate__animated animate__fadeIn" 
+          style={{ 
+            backgroundColor: '#16181c', 
+            border: '1px solid #2f3336', 
+            borderLeft: activeConnection === item.id ? `6px solid ${accent}` : `6px solid #2f3336`, 
+            borderRadius: '24px', 
+            minHeight: '220px',
+            transition: 'border-color 0.5s ease' 
+          }}
+        >
+                {activeConnection === item.id ? ( 
             <SwipeSlider onComplete={() => handleJoinVibeConfirm(item)} onCancel={() => setActiveConnection(null)} /> 
           ) : (
             <>
