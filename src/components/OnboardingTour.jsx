@@ -1,20 +1,24 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import Joyride, { STATUS } from 'react-joyride';
 import { useTheme } from '../context/ThemeContext';
 
 const OnboardingTour = ({ ready }) => {
   const { accent } = useTheme();
+  
+  // Initialize state based on localStorage to prevent "flickering" starts
   const [run, setRun] = useState(false);
 
   useEffect(() => {
     const hasSeenTour = localStorage.getItem('hasSeenConnectTour');
-    // Start only if user hasn't seen it and Home.jsx signals "ready"
+    
+    // Only set run to true if the user hasn't seen it and the parent component is ready
     if (hasSeenTour !== 'true' && ready) {
       setRun(true);
     }
   }, [ready]);
 
-  const steps = [
+  // useMemo prevents the steps array from being re-created on every render
+  const steps = useMemo(() => [
     {
       target: 'body',
       placement: 'center',
@@ -45,10 +49,11 @@ const OnboardingTour = ({ ready }) => {
       content: 'Isolate specific vibes: Study sessions, Coffee runs, or Gym partners.',
       placement: 'bottom',
     }
-  ];
+  ], []);
 
   const handleJoyrideCallback = (data) => {
     const { status } = data;
+    // When the tour ends or is skipped, update localStorage and stop the run
     if ([STATUS.FINISHED, STATUS.SKIPPED].includes(status)) {
       localStorage.setItem('hasSeenConnectTour', 'true');
       setRun(false);
@@ -64,6 +69,7 @@ const OnboardingTour = ({ ready }) => {
         showSkipButton={true}
         showProgress={true}
         disableScrolling={false}
+        scrollToFirstStep={true}
         callback={handleJoyrideCallback}
         styles={{
           options: {
@@ -72,11 +78,9 @@ const OnboardingTour = ({ ready }) => {
             backgroundColor: '#16181c',
             textColor: '#ffffff',
             arrowColor: '#16181c',
-            // REDUCED OPACITY: Makes background visible
-            overlayColor: 'rgba(0, 0, 0, 0.5)', 
+            overlayColor: 'rgba(0, 0, 0, 0.6)', 
           },
           overlay: {
-            // REMOVED BLUR: Background will be sharp
             backdropFilter: 'none', 
           },
           buttonNext: {
@@ -84,7 +88,8 @@ const OnboardingTour = ({ ready }) => {
             fontSize: '12px',
             fontWeight: 'bold',
             color: '#000',
-            padding: '10px 20px'
+            padding: '10px 20px',
+            backgroundColor: accent,
           },
           buttonBack: {
             color: '#888',

@@ -150,13 +150,14 @@ const ActiveMeetup = ({ item,onEnd }) => {
       <span className="text-white-50 fw-bold me-1" style={{fontSize: '9px'}}>WAITING FOR PEER...</span>
     )}
 
-    <MissionTimer 
-       expiresAt={vibeData?.expiresAt} 
-       sessionStarted={vibeData?.sessionStarted || false} 
-       vibeId={item.id}
-       accent={accent} 
-    />
+   
 
+<MissionTimer 
+    expiresAt={vibeData?.expiresAt} 
+    durationMins={vibeData?.durationMins} 
+    sessionStarted={vibeData?.sessionStarted} 
+    accent={accent} 
+/>
                 </div>
             </div>
         </div>

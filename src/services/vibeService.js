@@ -148,30 +148,34 @@ export const joinVibe = async (vibeId, userLoc) => {
 
 
 
+// services/vibeService.js
+
 export const updatePresence = async (vibeId, uid, isPresent) => {
     const vibeRef = doc(db, "vibes", vibeId);
+    
     await runTransaction(db, async (transaction) => {
         const snap = await transaction.get(vibeRef);
         if (!snap.exists()) return;
         const data = snap.data();
         
         let activeList = data.activeParticipants || [];
-        if (isPresent && !activeList.includes(uid)) activeList.push(uid);
-        else if (!isPresent) activeList = activeList.filter(id => id !== uid);
+        if (isPresent && !activeList.includes(uid)) {
+            activeList.push(uid);
+        } else if (!isPresent) {
+            activeList = activeList.filter(id => id !== uid);
+        }
 
         const updates = { activeParticipants: activeList };
 
+        // NEW LOGIC: Start timer if the Creator enters the room
+        const isCreator = data.creatorId === uid;
         
-        const hostId = data.creatorId;
-        const peerId = data.participants?.[0]; 
-
-        const hostInRoom = activeList.includes(hostId);
-        const peerInRoom = peerId && activeList.includes(peerId);
-        
-       
-        if (hostInRoom && peerInRoom && !data.sessionStarted) {
+        if (isPresent && isCreator && !data.sessionStarted) {
             updates.sessionStarted = true;
-            updates.expiresAt = Timestamp.fromDate(new Date(Date.now() + (data.durationMins || 15) * 60000));
+            updates.startedAt = serverTimestamp();
+            // Calculate expiry based on the intended duration
+            const duration = data.durationMins || 15;
+            updates.expiresAt = Timestamp.fromDate(new Date(Date.now() + duration * 60000));
         }
         
         transaction.update(vibeRef, updates);

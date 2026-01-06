@@ -24,27 +24,37 @@ export const SOSManager = ({ active, onTrigger }) => {
 };
 
 
+// Inside components/ConnectFeatures.js
+
+// components/ConnectFeatures.js
+
 export const MissionTimer = memo(({ expiresAt, durationMins, sessionStarted, accent }) => {
   const [timeLeft, setTimeLeft] = useState("");
 
   useEffect(() => {
-    
-    if (!sessionStarted) { 
-      setTimeLeft(`${durationMins || 15}:00`); 
-      return; 
+    // If the session hasn't started yet (Creator hasn't entered), show static time
+    if (!sessionStarted) {
+      setTimeLeft(`${durationMins || 15}:00`);
+      return;
     }
 
-    if (sessionStarted && !expiresAt) {
-      return; 
+    // If session started but Timestamp is still null (waiting for server)
+    if (!expiresAt) {
+      setTimeLeft("LOADING...");
+      return;
     }
 
     const calculateTime = () => {
-      const targetTime = expiresAt?.toMillis ? expiresAt.toMillis() : expiresAt;
-      const diff = targetTime - Date.now();
+      // Use seconds * 1000 for the most reliable real-time calculation
+      const targetMillis = expiresAt?.seconds 
+        ? expiresAt.seconds * 1000 
+        : (expiresAt?.toMillis ? expiresAt.toMillis() : Date.now());
+        
+      const diff = targetMillis - Date.now();
 
       if (diff <= 0) {
         setTimeLeft("00:00");
-        return clearInterval(timer);
+        return;
       }
 
       const m = Math.floor(diff / 60000);
@@ -52,24 +62,18 @@ export const MissionTimer = memo(({ expiresAt, durationMins, sessionStarted, acc
       setTimeLeft(`${m}:${s.toString().padStart(2, "0")}`);
     };
 
-    calculateTime(); 
-    const timer = setInterval(calculateTime, 1000);
+    calculateTime();
+    const interval = setInterval(calculateTime, 1000);
+
+    return () => clearInterval(interval);
     
-    return () => clearInterval(timer);
-  }, [expiresAt, sessionStarted, durationMins]); 
+    // Watch the actual seconds property to trigger the effect immediately on sync
+  }, [expiresAt?.seconds, sessionStarted, durationMins]);
 
   return (
-    <span 
-      className="fw-bold animate__animated animate__fadeIn" 
-      style={{ 
-        color: !sessionStarted ? '#444' : accent,
-        letterSpacing: '0.5px' 
-      }}
-    >
+    <span className="fw-bold" style={{ color: sessionStarted ? accent : '#444' }}>
       {timeLeft}
-      {!sessionStarted && (
-        <span className="ms-1" style={{ fontSize: '0.6rem', opacity: 0.5 }}>WAITING...</span>
-      )}
+      {!sessionStarted && <span className="ms-1" style={{fontSize: '0.6rem', opacity: 0.5}}>(PAUSED)</span>}
     </span>
   );
 });
