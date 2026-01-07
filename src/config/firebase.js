@@ -4,6 +4,7 @@ import { getFirestore } from "firebase/firestore";
 import { getAnalytics, isSupported } from "firebase/analytics";
 import { getMessaging } from "firebase/messaging";
 
+
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
   authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
@@ -21,5 +22,6 @@ export const messaging = getMessaging(app);
 
 // Analytics is not supported in all environments (like SSR)
 export const analytics = isSupported().then(yes => yes ? getAnalytics(app) : null);
+
 
 export default app;

@@ -7,21 +7,43 @@ import {
 import { getDistance } from "../utils/geoUtils";
 import geohash from 'ngeohash';
 import { toast } from 'react-toastify';
+import { analytics } from "../config/firebase";
+import { logEvent } from "firebase/analytics";
 
-const runGlobalCleanup = async () => {
+/**
+ * OPTIMIZATION: Distributed Cleanup
+ * Only cleans the CURRENT user's expired data to save on Firestore reads/writes.
+ */
+const runUserCleanup = async (uid) => {
   try {
     const now = Timestamp.fromDate(new Date());
     const batch = writeBatch(db);
-    const qNotif = query(collection(db, "notifications"), where("expiresAt", "<", now));
-    const notifSnap = await getDocs(qNotif);
-    notifSnap.docs.forEach(d => batch.delete(d.ref));
-    const qVibes = query(collection(db, "vibes"), where("expiresAt", "<", now));
-    const vibeSnap = await getDocs(qVibes);
-    vibeSnap.docs.forEach(d => batch.delete(d.ref));
-    if (!notifSnap.empty || !vibeSnap.empty) await batch.commit();
-  } catch (err) { console.error("❌ Janitor failed:", err); }
-};
 
+    const qNotif = query(
+      collection(db, "notifications"), 
+      where("recipientId", "==", uid), 
+      where("expiresAt", "<", now)
+    );
+    
+    const qVibes = query(
+      collection(db, "vibes"), 
+      where("creatorId", "==", uid), 
+      where("expiresAt", "<", now)
+    );
+
+    const [notifSnap, vibeSnap] = await Promise.all([getDocs(qNotif), getDocs(qVibes)]);
+
+    notifSnap.docs.forEach(d => batch.delete(d.ref));
+    vibeSnap.docs.forEach(d => batch.delete(d.ref));
+
+    if (!notifSnap.empty || !vibeSnap.empty) {
+      await batch.commit();
+      console.log("✅ Self-cleanup complete.");
+    }
+  } catch (err) { 
+    console.error("❌ Local Janitor failed:", err); 
+  }
+};
 
 const triggerNotification = async (recipientId, title, body, type, vibeId = null) => {
   if (!recipientId || recipientId === auth.currentUser?.uid) return;
@@ -31,14 +53,15 @@ const triggerNotification = async (recipientId, title, body, type, vibeId = null
       createdAt: serverTimestamp(),
       expiresAt: Timestamp.fromDate(new Date(Date.now() + 24 * 60 * 60 * 1000))
     };
-
- 
     if (vibeId) payload.vibeId = vibeId;
-
     await addDoc(collection(db, "notifications"), payload);
   } catch (err) { console.error("❌ Notification failed:", err); }
 };
 
+/**
+ * FEATURE: Create Vibe with Neighbor Discovery
+ * Uses 9-block geohash searching to ensure no one is missed at boundaries.
+ */
 export const createVibe = async (vibeData, userLoc) => {
   if (!auth.currentUser) throw new Error("Unauthorized");
   if (!userLoc) throw new Error("Location required");
@@ -83,32 +106,50 @@ export const createVibe = async (vibeData, userLoc) => {
       messages: []
     };
 
-    
     const docRef = await addDoc(collection(db, "vibes"), vibePayload);
+    analytics.then(instance => {
+    if (instance) {
+      logEvent(instance, 'vibe_created', {
+        activity_type: vibeData.type,
+        duration: vibeData.mins,
+        location: vibeData.loc
+      });
+    }
+  });
 
     await updateDoc(userRef, { 
       lastSeen: serverTimestamp(), 
       lastCoords: userLoc 
     });
 
-    runGlobalCleanup();
+    // Run the optimized cleanup
+    runUserCleanup(uid);
     
-    const searchHash = geohash.encode(userLoc.lat, userLoc.lng, 6);
-    const qNearby = query(collection(db, "users"), where("geohash", ">=", searchHash), where("geohash", "<=", searchHash + "\uf8ff"), limit(50));
-    const usersSnap = await getDocs(qNearby);
-    
-    
-    usersSnap.docs.forEach(uDoc => {
-      const uData = uDoc.data();
-      if (uDoc.id !== uid && !uData.isIncognito) {
-        const peerCoords = uData.lastCoords || uData.coords;
-        const isNotBlocked = !(uid in (uData.blockedUsers || []));
-        
-        if (isNotBlocked && peerCoords && getDistance(userLoc.lat, userLoc.lng, peerCoords.lat, peerCoords.lng) <= 0.5) {
-         
-          triggerNotification(uDoc.id, "NEARBY SIGNAL", `Buddy needed for ${vibeData.type}!`, "radar", docRef.id);
+    // NEIGHBOR LOGIC: Center + 8 neighbors
+    const centerHash = geohash.encode(userLoc.lat, userLoc.lng, 6);
+    const neighbors = geohash.neighbors(centerHash);
+    const searchBlocks = [centerHash, ...neighbors];
+
+    searchBlocks.forEach(async (block) => {
+      const qNearby = query(
+        collection(db, "users"), 
+        where("searchHash", "==", block), 
+        limit(20)
+      );
+      
+      const usersSnap = await getDocs(qNearby);
+      usersSnap.docs.forEach(uDoc => {
+        const uData = uDoc.data();
+        if (uDoc.id !== uid && !uData.isIncognito) {
+          const peerCoords = uData.lastCoords || uData.coords;
+          const blockedList = uData.blockedUsers || [];
+          const isNotBlocked = !blockedList.includes(uid);
+          
+          if (isNotBlocked && peerCoords && getDistance(userLoc.lat, userLoc.lng, peerCoords.lat, peerCoords.lng) <= 0.5) {
+            triggerNotification(uDoc.id, "NEARBY SIGNAL", `Buddy needed for ${vibeData.type}!`, "radar", docRef.id);
+          }
         }
-      }
+      });
     });
 
     return docRef;
@@ -146,40 +187,35 @@ export const joinVibe = async (vibeId, userLoc) => {
   } catch (err) { throw err; }
 };
 
-
-
-// services/vibeService.js
-
+// Replace updatePresence in vibeService.js
 export const updatePresence = async (vibeId, uid, isPresent) => {
-    const vibeRef = doc(db, "vibes", vibeId);
-    
-    await runTransaction(db, async (transaction) => {
-        const snap = await transaction.get(vibeRef);
-        if (!snap.exists()) return;
-        const data = snap.data();
-        
-        let activeList = data.activeParticipants || [];
-        if (isPresent && !activeList.includes(uid)) {
-            activeList.push(uid);
-        } else if (!isPresent) {
-            activeList = activeList.filter(id => id !== uid);
-        }
+  const vibeRef = doc(db, "vibes", vibeId);
+  const uid_str = String(uid);
 
-        const updates = { activeParticipants: activeList };
-
-        // NEW LOGIC: Start timer if the Creator enters the room
-        const isCreator = data.creatorId === uid;
-        
-        if (isPresent && isCreator && !data.sessionStarted) {
-            updates.sessionStarted = true;
-            updates.startedAt = serverTimestamp();
-            // Calculate expiry based on the intended duration
-            const duration = data.durationMins || 15;
-            updates.expiresAt = Timestamp.fromDate(new Date(Date.now() + duration * 60000));
-        }
-        
-        transaction.update(vibeRef, updates);
-    });
+  try {
+    if (isPresent) {
+      await updateDoc(vibeRef, {
+        activeParticipants: arrayUnion(uid_str)
+      });
+      
+      // Handle the session start logic separately to avoid contention
+      const snap = await getDoc(vibeRef);
+      const data = snap.data();
+      if (data && data.creatorId === uid && !data.sessionStarted) {
+        await updateDoc(vibeRef, {
+          sessionStarted: true,
+          startedAt: serverTimestamp(),
+          expiresAt: Timestamp.fromDate(new Date(Date.now() + (data.durationMins || 15) * 60000))
+        });
+      }
+    } else {
+      await updateDoc(vibeRef, {
+        activeParticipants: arrayRemove(uid_str)
+      });
+    }
+  } catch (err) {
+    console.error("Presence update failed:", err);
+  }
 };
 
 export const abortSession = async (vibeId) => {
@@ -188,34 +224,23 @@ export const abortSession = async (vibeId) => {
   catch (err) { console.error("❌ Abort failed:", err); throw err; }
 };
 
-
-
 export const leaveSession = async (vibeId, uid) => {
   if (!vibeId) return;
   const vibeRef = doc(db, "vibes", vibeId);
-  
   try {
     await runTransaction(db, async (transaction) => {
       const snap = await transaction.get(vibeRef);
       if (!snap.exists()) return;
-      
       const data = snap.data();
-      // Remove current user from the active participants list
       const currentActive = data.activeParticipants || [];
       const updatedActive = currentActive.filter(id => id !== uid);
-      
       if (updatedActive.length === 0) {
-        // I am the last person here, kill the vibe
         transaction.delete(vibeRef);
       } else {
-        // Peer is still looking at the reveal screen, just update the list
         transaction.update(vibeRef, { activeParticipants: updatedActive });
       }
     });
-  } catch (err) {
-    console.error("Leave session error:", err);
-    // If transaction fails (e.g. doc already gone), just exit locally
-  }
+  } catch (err) { console.error("Leave session error:", err); }
 };
 
 export const logArrival = async (vibeId) => {
@@ -226,13 +251,9 @@ export const logArrival = async (vibeId) => {
     const snap = await transaction.get(vibeRef);
     if (!snap.exists()) return;
     const data = snap.data();
-    
-    // Increment points and log arrival
     transaction.update(userRef, { trustPoints: increment(1) });
     transaction.update(vibeRef, { [`arrived_${uid}`]: true });
-    
     const partnerId = data.participants.find(id => id !== uid) || data.creatorId;
-    // Check if partner already arrived
     if (data[`arrived_${partnerId}`]) {
       transaction.update(vibeRef, { status: "completed" });
     }
@@ -248,32 +269,21 @@ export const deleteVibe = async (vibeId) => {
   if (!vibeId) return;
   try {
     const batch = writeBatch(db);
-
-    // 1. Find all notifications linked to this specific vibe
-    const notifQuery = query(
-      collection(db, "notifications"), 
-      where("vibeId", "==", vibeId)
-    );
+    const notifQuery = query(collection(db, "notifications"), where("vibeId", "==", vibeId));
     const notifSnap = await getDocs(notifQuery);
-
-    // 2. Add notification deletions to the batch
-    notifSnap.docs.forEach((notifDoc) => {
-      batch.delete(notifDoc.ref);
-    });
-
-    // 3. Delete the vibe document itself
+    notifSnap.docs.forEach((notifDoc) => batch.delete(notifDoc.ref));
     batch.delete(doc(db, "vibes", vibeId));
-
-    // 4. Execute all at once
     await batch.commit();
-    console.log(`✅ Cleaned up Vibe ${vibeId} and ${notifSnap.size} notifications.`);
   } catch (err) {
     console.error("❌ Vibe cleanup failed:", err);
-    // Fallback: Try to at least delete the vibe if the notification query failed
     await deleteDoc(doc(db, "vibes", vibeId)).catch(() => {});
   }
 };
 
+/**
+ * FEATURE: Boundary-safe SOS
+ * Notifies all users in the 9-block radius for maximum safety.
+ */
 export const triggerSOS = async (userLoc) => {
   if (!userLoc) throw new Error("Location required");
   const uid = auth.currentUser.uid;
@@ -283,12 +293,19 @@ export const triggerSOS = async (userLoc) => {
     expiresAt: Timestamp.fromDate(new Date(Date.now() + 30 * 60000))
   };
   const docRef = await addDoc(collection(db, "safety_alerts"), sosPayload);
-  const searchHash = geohash.encode(userLoc.lat, userLoc.lng, 6);
-  const qNearby = query(collection(db, "users"), where("geohash", ">=", searchHash), where("geohash", "<=", searchHash + "\uf8ff"), limit(100));
-  const usersSnap = await getDocs(qNearby);
-  usersSnap.docs.forEach(uDoc => {
-    if (uDoc.id !== uid) triggerNotification(uDoc.id, "🚨 SOS", "A peer nearby needs help.", "safety");
+
+  const centerHash = geohash.encode(userLoc.lat, userLoc.lng, 6);
+  const neighbors = geohash.neighbors(centerHash);
+  const searchBlocks = [centerHash, ...neighbors];
+
+  searchBlocks.forEach(async (block) => {
+    const qNearby = query(collection(db, "users"), where("searchHash", "==", block), limit(50));
+    const usersSnap = await getDocs(qNearby);
+    usersSnap.docs.forEach(uDoc => {
+      if (uDoc.id !== uid) triggerNotification(uDoc.id, "🚨 SOS", "A peer nearby needs help.", "safety");
+    });
   });
+  
   return docRef.id;
 };
 

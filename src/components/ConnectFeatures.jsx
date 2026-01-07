@@ -23,40 +23,28 @@ export const SOSManager = ({ active, onTrigger }) => {
     return null;
 };
 
-
-// Inside components/ConnectFeatures.js
-
-// components/ConnectFeatures.js
-
 export const MissionTimer = memo(({ expiresAt, durationMins, sessionStarted, accent }) => {
   const [timeLeft, setTimeLeft] = useState("");
 
   useEffect(() => {
-    // If the session hasn't started yet (Creator hasn't entered), show static time
     if (!sessionStarted) {
       setTimeLeft(`${durationMins || 15}:00`);
       return;
     }
-
-    // If session started but Timestamp is still null (waiting for server)
     if (!expiresAt) {
       setTimeLeft("LOADING...");
       return;
     }
 
     const calculateTime = () => {
-      // Use seconds * 1000 for the most reliable real-time calculation
       const targetMillis = expiresAt?.seconds 
         ? expiresAt.seconds * 1000 
         : (expiresAt?.toMillis ? expiresAt.toMillis() : Date.now());
-        
       const diff = targetMillis - Date.now();
-
       if (diff <= 0) {
         setTimeLeft("00:00");
         return;
       }
-
       const m = Math.floor(diff / 60000);
       const s = Math.floor((diff % 60000) / 1000);
       setTimeLeft(`${m}:${s.toString().padStart(2, "0")}`);
@@ -64,10 +52,7 @@ export const MissionTimer = memo(({ expiresAt, durationMins, sessionStarted, acc
 
     calculateTime();
     const interval = setInterval(calculateTime, 1000);
-
     return () => clearInterval(interval);
-    
-    // Watch the actual seconds property to trigger the effect immediately on sync
   }, [expiresAt?.seconds, sessionStarted, durationMins]);
 
   return (
@@ -77,6 +62,7 @@ export const MissionTimer = memo(({ expiresAt, durationMins, sessionStarted, acc
     </span>
   );
 });
+
 export const ScratchBadge = ({ code, accent }) => {
     const canvasRef = useRef(null);
     useEffect(() => {
@@ -108,7 +94,7 @@ export const ScratchBadge = ({ code, accent }) => {
     );
 };
 
-export const ChatRoom = ({ vibeId, accent }) => {
+export const ChatRoom = ({ vibeId, accent, userLoc }) => { 
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
   const [isOtherTyping, setIsOtherTyping] = useState(false);
@@ -119,6 +105,7 @@ export const ChatRoom = ({ vibeId, accent }) => {
   const [facingMode, setFacingMode] = useState('user');
   const videoRef = useRef(null);
   const chatEndRef = useRef(null);
+  const locationToastId = useRef(null); 
   const BURN_TIME = 5000;
 
   useEffect(() => {
@@ -140,40 +127,30 @@ export const ChatRoom = ({ vibeId, accent }) => {
     });
   }, [vibeId]);
 
-  
-useEffect(() => {
-  const markAsRead = async () => {
-    if (!vibeId || messages.length === 0) return;
+  useEffect(() => {
+    const markAsRead = async () => {
+      if (!vibeId || messages.length === 0) return;
+      const uid = auth.currentUser.uid;
+      const lastMsg = messages[messages.length - 1];
 
-    const uid = auth.currentUser.uid;
-    let needsUpdate = false;
-    
-    
-    const updatedMessages = messages.map(msg => {
-    
-      if (msg.senderId !== uid && !msg.seenBy?.includes(uid)) {
-        needsUpdate = true;
-        return {
-          ...msg,
-          seenBy: [...(msg.seenBy || []), uid]
-        };
-      }
-      return msg;
-    });
-
-    if (needsUpdate) {
-      try {
-        await updateDoc(doc(db, "vibes", vibeId), {
-          messages: updatedMessages
+      
+      if (lastMsg.senderId !== uid && !lastMsg.seenBy?.includes(uid)) {
+        const updatedMessages = messages.map(msg => {
+          if (msg.senderId !== uid && !msg.seenBy?.includes(uid)) {
+            return { ...msg, seenBy: [...(msg.seenBy || []), uid] };
+          }
+          return msg;
         });
-      } catch (err) {
-        console.error("Failed to update read receipts", err);
-      }
-    }
-  };
 
-  markAsRead();
-}, [messages, vibeId]); 
+        try {
+          await updateDoc(doc(db, "vibes", vibeId), { messages: updatedMessages });
+        } catch (err) {
+          console.warn("Read receipt sync deferred");
+        }
+      }
+    };
+    markAsRead();
+  }, [messages.length, vibeId]); 
 
   const scrollToBottom = () => chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
   useEffect(() => scrollToBottom(), [messages, isOtherTyping]);
@@ -181,6 +158,7 @@ useEffect(() => {
   const sendMsg = async (e, isBurn = false, imgData = null, mapUrl = null) => {
     if (e) e.preventDefault();
     if (!input.trim() && !isBurn && !mapUrl) return;
+
     const msg = {
       id: "m_" + Date.now(),
       senderId: auth.currentUser.uid,
@@ -191,17 +169,41 @@ useEffect(() => {
       seenBy: [auth.currentUser.uid],
       time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     };
-    await updateDoc(doc(db, "vibes", vibeId), { messages: arrayUnion(msg) });
+
+   
+    setMessages(prev => [...prev, msg]);
     setInput("");
+
+    
+    return updateDoc(doc(db, "vibes", vibeId), { messages: arrayUnion(msg) });
   };
 
- 
   const sendLocation = () => {
-    if (!navigator.geolocation) return toast.error("GPS Disabled");
-    navigator.geolocation.getCurrentPosition(async (pos) => {
-      const url = `https://www.google.com/maps?q=${pos.coords.latitude},${pos.coords.longitude}`;
-      await sendMsg(null, false, null, url);
-    }, () => toast.error("Location denied"));
+    if (!userLoc) return toast.error("GPS signal not locked.");
+
+    
+    if (locationToastId.current && toast.isActive(locationToastId.current)) return;
+
+    locationToastId.current = toast.loading("Uplinking coordinates...", {
+      icon: <MapPin size={18} />,
+      position: "top-center"
+    });
+
+    const url = `https://www.google.com/maps?q=${userLoc.lat},${userLoc.lng}`;
+    
+    sendMsg(null, false, null, url)
+      .then(() => {
+        toast.update(locationToastId.current, {
+          render: "Location Sent",
+          type: "success",
+          isLoading: false,
+          autoClose: 1000
+        });
+      })
+      .catch(() => {
+        toast.dismiss(locationToastId.current);
+        toast.error("Uplink failed");
+      });
   };
 
   const openCam = async () => {
@@ -221,7 +223,6 @@ useEffect(() => {
   const capturePhoto = async () => {
     if (isCapturing) return;
     setIsCapturing(true); 
-    
     try {
       const canvas = document.createElement('canvas');
       canvas.width = videoRef.current.videoWidth;
@@ -230,7 +231,6 @@ useEffect(() => {
       if (facingMode === 'user') { ctx.translate(canvas.width, 0); ctx.scale(-1, 1); }
       ctx.drawImage(videoRef.current, 0, 0);
       const imgData = canvas.toDataURL('image/jpeg', 0.6);
-      
       await sendMsg(null, true, imgData);
       setTimeout(() => stopCam(), 800);
     } catch (err) {
@@ -269,7 +269,6 @@ useEffect(() => {
         <div ref={chatEndRef} />
       </div>
 
-      
       <Form onSubmit={sendMsg} className="p-2 p-md-3 bg-black border-top border-dark d-flex gap-2">
         <Button onClick={openCam} variant="dark" className="rounded-circle chat-btn"><Camera size={18} color={accent}/></Button>
         <Button onClick={sendLocation} variant="dark" className="rounded-circle chat-btn"><MapPin size={18} color={accent}/></Button>
@@ -277,7 +276,6 @@ useEffect(() => {
         <Button type="submit" style={{ background: accent, border: 'none', color: '#000', borderRadius: '10px' }}><ChevronRight /></Button>
       </Form>
 
-      
       {burningId && (
         <div className="position-absolute top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center" style={{ zIndex: 2000, background: '#000' }}>
           <div className="position-absolute top-0 end-0 m-4" style={{ transform: 'rotate(-90deg)' }}>
@@ -290,13 +288,11 @@ useEffect(() => {
         </div>
       )}
 
-      {/* CAMERA UI WITH SNAPCHAT LOADER */}
       {showCam && (
         <div className="position-absolute top-0 start-0 w-100 h-100 bg-black" style={{ zIndex: 3000 }}>
           <video ref={videoRef} autoPlay playsInline style={{ width: '100%', height: '100%', objectFit: 'cover', transform: facingMode === 'user' ? 'scaleX(-1)' : 'none' }} />
           <div className="position-absolute bottom-0 w-100 p-5 d-flex justify-content-center align-items-center gap-5">
              <div onClick={stopCam} className="p-3 rounded-circle active-click" style={{ backgroundColor: 'rgba(255,255,255,0.1)' }}><X color="white" size={24}/></div>
-             
              <div className="position-relative d-flex align-items-center justify-content-center" style={{ width: '85px', height: '85px' }}>
                 {isCapturing && (
                   <svg width="85" height="85" className="position-absolute" style={{ transform: 'rotate(-90deg)' }}>
@@ -305,7 +301,6 @@ useEffect(() => {
                 )}
                 <div onClick={capturePhoto} className={`camera-trigger active-click ${isCapturing ? 'processing' : ''}`} style={{ '--accent': accent }} />
              </div>
-
              <div onClick={() => setFacingMode(f => f === 'user' ? 'environment' : 'user')} className="p-3 rounded-circle active-click" style={{ backgroundColor: 'rgba(255,255,255,0.1)' }}><RefreshCw color="white" size={24}/></div>
           </div>
         </div>

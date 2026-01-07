@@ -7,6 +7,7 @@ import { ThemeProvider } from './context/ThemeContext.jsx';
 import App from './App.jsx'
 import 'leaflet/dist/leaflet.css';
 
+
 createRoot(document.getElementById('root')).render(
 <React.StrictMode>
     <AuthProvider>

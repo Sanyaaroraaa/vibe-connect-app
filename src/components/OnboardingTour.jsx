@@ -2,22 +2,19 @@ import React, { useState, useEffect, useMemo } from 'react';
 import Joyride, { STATUS } from 'react-joyride';
 import { useTheme } from '../context/ThemeContext';
 
-const OnboardingTour = ({ ready }) => {
+const OnboardingTour = ({ ready, hasSeenTourInDb, onComplete }) => {
   const { accent } = useTheme();
-  
-  // Initialize state based on localStorage to prevent "flickering" starts
   const [run, setRun] = useState(false);
 
   useEffect(() => {
-    const hasSeenTour = localStorage.getItem('hasSeenConnectTour');
+    const localSeen = localStorage.getItem('hasSeenConnectTour');
     
-    // Only set run to true if the user hasn't seen it and the parent component is ready
-    if (hasSeenTour !== 'true' && ready) {
+    // Only run if NOT seen in DB AND NOT seen in LocalStorage
+    if (!hasSeenTourInDb && localSeen !== 'true' && ready) {
       setRun(true);
     }
-  }, [ready]);
+  }, [ready, hasSeenTourInDb]);
 
-  // useMemo prevents the steps array from being re-created on every render
   const steps = useMemo(() => [
     {
       target: 'body',
@@ -53,77 +50,48 @@ const OnboardingTour = ({ ready }) => {
 
   const handleJoyrideCallback = (data) => {
     const { status } = data;
-    // When the tour ends or is skipped, update localStorage and stop the run
     if ([STATUS.FINISHED, STATUS.SKIPPED].includes(status)) {
       localStorage.setItem('hasSeenConnectTour', 'true');
       setRun(false);
+   
+      if (onComplete) onComplete();
     }
   };
 
   return (
-    <>
-      <Joyride
-        steps={steps}
-        run={run}
-        continuous={true}
-        showSkipButton={true}
-        showProgress={true}
-        disableScrolling={false}
-        scrollToFirstStep={true}
-        callback={handleJoyrideCallback}
-        styles={{
-          options: {
-            zIndex: 10000000,
-            primaryColor: accent,
-            backgroundColor: '#16181c',
-            textColor: '#ffffff',
-            arrowColor: '#16181c',
-            overlayColor: 'rgba(0, 0, 0, 0.6)', 
-          },
-          overlay: {
-            backdropFilter: 'none', 
-          },
-          buttonNext: {
-            borderRadius: '8px',
-            fontSize: '12px',
-            fontWeight: 'bold',
-            color: '#000',
-            padding: '10px 20px',
-            backgroundColor: accent,
-          },
-          buttonBack: {
-            color: '#888',
-            fontSize: '12px',
-            marginRight: '10px'
-          },
-          tooltip: {
-            borderRadius: '16px',
-            border: `1px solid ${accent}44`,
-            padding: '15px'
-          }
-        }}
-      />
-      <style>{`
-        /* Force the guide box to be on top of the overlay */
-        .react-joyride__tooltip {
-          z-index: 10000001 !important;
+    <Joyride
+      steps={steps}
+      run={run}
+      continuous={true}
+      showSkipButton={true}
+      showProgress={true}
+      disableScrolling={false}
+      scrollToFirstStep={true}
+      callback={handleJoyrideCallback}
+      styles={{
+        options: {
+          zIndex: 10000000,
+          primaryColor: accent,
+          backgroundColor: '#16181c',
+          textColor: '#ffffff',
+          arrowColor: '#16181c',
+          overlayColor: 'rgba(0, 0, 0, 0.7)', 
+        },
+        buttonNext: {
+          borderRadius: '8px',
+          fontSize: '12px',
+          fontWeight: 'bold',
+          color: '#000',
+          padding: '10px 20px',
+          backgroundColor: accent,
+        },
+        tooltip: {
+          borderRadius: '16px',
+          border: `1px solid ${accent}44`,
+          padding: '15px'
         }
-
-        /* Neon Glow around the focused element */
-        .joyride-spotlight {
-          box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.5), 0 0 30px ${accent} !important;
-          border-radius: 16px !important;
-        }
-
-        /* Responsive Fix */
-        @media (max-width: 768px) {
-          .react-joyride__tooltip {
-            width: 90vw !important;
-            margin: 0 auto !important;
-          }
-        }
-      `}</style>
-    </>
+      }}
+    />
   );
 };
 

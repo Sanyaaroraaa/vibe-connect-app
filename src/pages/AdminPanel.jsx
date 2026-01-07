@@ -95,7 +95,7 @@ const AdminPanel = ({ accent }) => {
                     <span className="fw-bold small">{user.name}</span>
                     <span className="text-white-50" style={{fontSize: '10px'}}>{user.uid.slice(0,8)}</span>
                 </div>
-                {/* DISPLAY THE BASE64 IMAGE */}
+               
                 <div className="mb-3 rounded-3 overflow-hidden" style={{ height: '200px', background: '#000' }}>
                   <img src={user.idCardBase64} alt="ID" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
                 </div>

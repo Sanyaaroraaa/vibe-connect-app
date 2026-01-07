@@ -15,7 +15,7 @@ export const useActiveVibe = (itemId) => {
     }
     
     // 1. Mark presence ASYNCHRONOUSLY 
-    // We don't want to block the listener setup
+   
     updatePresence(itemId, currentUid, true).catch(console.error);
 
     // 2. Setup the Listener
@@ -23,9 +23,7 @@ export const useActiveVibe = (itemId) => {
     const unsubscribe = onSnapshot(vibeRef, (snap) => {
       if (snap.exists()) {
         const data = snap.data();
-        // LOGIC CHECK: 
-        // If the database says the session is started but we don't have an expiry,
-        // it means we are in the middle of a write. 
+       
         setVibeData({ id: snap.id, ...data });
       } else {
         setVibeData(null);
@@ -39,11 +37,10 @@ export const useActiveVibe = (itemId) => {
     // 3. Cleanup: Stop listening AND mark presence as false
     return () => {
       unsubscribe();
-      // Use a fire-and-forget call for cleanup
       updatePresence(itemId, currentUid, false).catch(console.error);
     };
     
-    // NOTE: only itemId is needed here usually, currentUid is stable
+
   }, [itemId, currentUid]);
 
   return { vibeData, loading };

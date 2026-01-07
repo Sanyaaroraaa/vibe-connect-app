@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import L from 'leaflet';
 import 'leaflet.heat';
 import 'leaflet/dist/leaflet.css';
@@ -13,6 +13,9 @@ const VibeHeatmap = ({ vibes, center }) => {
   const heatLayerRef = useRef(null);
   const userMarkerRef = useRef(null);
   const vibeMarkersGroupRef = useRef(L.layerGroup());
+  
+  // State to track if the container has dimensions to prevent Canvas errors
+  const [isContainerReady, setIsContainerReady] = useState(false);
 
   // Helper: Convert Lucide Icons to SVG Strings for Leaflet
   const getIconHtml = (type) => {
@@ -38,9 +41,28 @@ const VibeHeatmap = ({ vibes, center }) => {
     }
   };
 
-  // 1. INITIALIZE MAP
+  // 1. MONITOR CONTAINER SIZE (Critical for preventing IndexSizeError)
   useEffect(() => {
-    if (!mapContainerRef.current || mapInstanceRef.current || !isValidCoords(center)) return;
+    if (!mapContainerRef.current) return;
+
+    const checkSize = () => {
+      const { offsetWidth, offsetHeight } = mapContainerRef.current;
+      if (offsetWidth > 0 && offsetHeight > 0) {
+        setIsContainerReady(true);
+      }
+    };
+
+    const observer = new ResizeObserver(checkSize);
+    observer.observe(mapContainerRef.current);
+    checkSize(); // Initial check
+
+    return () => observer.disconnect();
+  }, []);
+
+  // 2. INITIALIZE MAP
+  useEffect(() => {
+    // Only init if we have a valid container with size and valid center
+    if (!isContainerReady || !mapContainerRef.current || mapInstanceRef.current || !isValidCoords(center)) return;
 
     mapInstanceRef.current = L.map(mapContainerRef.current, {
       center: center,
@@ -52,6 +74,7 @@ const VibeHeatmap = ({ vibes, center }) => {
     L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png').addTo(mapInstanceRef.current);
     vibeMarkersGroupRef.current.addTo(mapInstanceRef.current);
 
+    // Forces Leaflet to recalculate bounds after render
     setTimeout(() => {
       if (mapInstanceRef.current) mapInstanceRef.current.invalidateSize();
     }, 400);
@@ -62,9 +85,9 @@ const VibeHeatmap = ({ vibes, center }) => {
         mapInstanceRef.current = null;
       }
     };
-  }, [center]);
+  }, [center, isContainerReady]);
 
-  // 2. UPDATE USER PULSE
+  // 3. UPDATE USER PULSE
   useEffect(() => {
     if (mapInstanceRef.current && isValidCoords(center)) {
       if (userMarkerRef.current) mapInstanceRef.current.removeLayer(userMarkerRef.current);
@@ -79,16 +102,15 @@ const VibeHeatmap = ({ vibes, center }) => {
 
       userMarkerRef.current = L.marker(center, { icon: userIcon, zIndexOffset: 1000 }).addTo(mapInstanceRef.current);
     }
-  }, [center, accent]);
+  }, [center, accent, isContainerReady]);
 
-  // 3. UPDATE RADAR NODES & HEATMAP
+  // 4. UPDATE RADAR NODES & HEATMAP
   useEffect(() => {
-    if (!mapInstanceRef.current) return;
+    if (!mapInstanceRef.current || !isContainerReady) return;
 
     if (heatLayerRef.current) mapInstanceRef.current.removeLayer(heatLayerRef.current);
     vibeMarkersGroupRef.current.clearLayers();
 
-    // Filter: Only show vibes that are NOT full, NOT expired, and OPEN
     const activeVibes = vibes?.filter(v => 
       v.coords && 
       v.participantCount < 1 && 
@@ -97,12 +119,16 @@ const VibeHeatmap = ({ vibes, center }) => {
     );
 
     if (activeVibes?.length > 0) {
-      // Create Heat Layer
-      const heatData = activeVibes.map(p => [p.coords.lat, p.coords.lng, 0.6]);
-      heatLayerRef.current = L.heatLayer(heatData, {
-        radius: 25, blur: 18, maxZoom: 17,
-        gradient: { 0.4: '#111', 0.7: accent, 1.0: '#fff' }
-      }).addTo(mapInstanceRef.current);
+      // Heat Layer Creation (Wrapped in try-catch to prevent IndexSizeError crash)
+      try {
+        const heatData = activeVibes.map(p => [p.coords.lat, p.coords.lng, 0.6]);
+        heatLayerRef.current = L.heatLayer(heatData, {
+          radius: 25, blur: 18, maxZoom: 17,
+          gradient: { 0.4: '#111', 0.7: accent, 1.0: '#fff' }
+        }).addTo(mapInstanceRef.current);
+      } catch (e) {
+        console.warn("Heatmap draw skipped: Container not ready.");
+      }
 
       // Create Individual Node Markers with Activity Icons
       activeVibes.forEach((vibe) => {
@@ -121,7 +147,6 @@ const VibeHeatmap = ({ vibes, center }) => {
         const marker = L.marker([vibe.coords.lat + jitterLat, vibe.coords.lng + jitterLng], { icon: vibeIcon })
           .addTo(vibeMarkersGroupRef.current);
 
-        // Click to Scroll Logic
         marker.on('click', () => {
           const element = document.getElementById(`vibe-card-${vibe.id}`);
           if (element) {
@@ -136,7 +161,7 @@ const VibeHeatmap = ({ vibes, center }) => {
         });
       });
     }
-  }, [vibes, accent]);
+  }, [vibes, accent, isContainerReady]);
 
   return (
     <div className="heatmap-wrapper position-relative overflow-hidden" style={{ height: '300px' }}>
@@ -150,7 +175,7 @@ const VibeHeatmap = ({ vibes, center }) => {
         <Target size={20} />
       </button>
 
-      {!isValidCoords(center) && (
+      {(!isValidCoords(center) || !isContainerReady) && (
         <div className="position-absolute top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center bg-black" style={{ zIndex: 1001 }}>
              <div className="spinner-border spinner-border-sm text-secondary me-2"></div>
              <span className="text-white-50 small fw-bold">LOCKING RADAR...</span>

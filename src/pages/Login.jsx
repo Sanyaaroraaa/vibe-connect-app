@@ -18,6 +18,8 @@ import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import { useLocation } from 'react-router-dom';
 import { useTheme } from '../context/ThemeContext';
+import { analytics } from "../config/firebase";
+import { logEvent } from "firebase/analytics";
 
 
 const MY_ADMIN_UID = import.meta.env.VITE_FIREBASE_UID; 
@@ -83,8 +85,12 @@ const Login = ({ onLogin}) => {
         verified: false, 
         joinedAt: serverTimestamp() 
       });
-      setStep("verify");
-      return;
+      analytics.then(instance => {
+    if (instance) logEvent(instance, 'sign_up', { method: 'google_or_email' }); //
+  });
+  setStep("verify");
+  return;
+      
     }
     
     // 3. EXISTING USER: Check status from Firestore
