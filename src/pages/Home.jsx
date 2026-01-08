@@ -2,6 +2,7 @@ import React, { useEffect, useState, useRef, memo, useMemo } from "react";
 import { Container, Row, Col, Button, Form, Modal } from "react-bootstrap";
 import {
   MapPin,
+  ShieldAlert,
   Settings as SettingsIcon,
   Zap,
   BookOpen,
@@ -52,6 +53,7 @@ import { createVibe, joinVibe, deleteVibe } from "../services/vibeService";
 import ActiveMeetup from "./ActiveMeetup";
 import Settings from "../components/Settings";
 import NotificationPanel from "../components/NotificationPanel";
+import { triggerSOS } from "../services/vibeService"; 
 
 const TrustBadge = ({ userId }) => {
   const { accent } = useTheme();
@@ -415,6 +417,7 @@ const Home = () => {
   const [myTrustPoints, setMyTrustPoints] = useState(0);
   const filterIndicatorRef = useRef(null);
   const buttonsRef = useRef([]);
+  const [showSOSConfirm, setShowSOSConfirm] = useState(false);
   const myActiveVibe = useMemo(
     () => allVibes.find((v) => v.creatorId === auth.currentUser?.uid),
     [allVibes]
@@ -466,6 +469,31 @@ const Home = () => {
 
     return () => unsubscribe();
   }, [user]);
+
+
+const handleSOS = async () => {
+  if (!userLoc) {
+    toast.warn("GPS not locked. Cannot broadcast SOS.", { position: "top-center" });
+    return;
+  }
+  
+  setShowSOSConfirm(true);
+};
+
+const confirmAndTriggerSOS = async () => {
+  try {
+    setShowSOSConfirm(false); 
+    await triggerSOS(userLoc); 
+    toast.error("🚨 SOS BROADCAST ACTIVE", {
+      position: "top-center",
+      autoClose: 8000,
+      style: { background: '#ff4444', color: '#fff', fontWeight: '900' }
+    });
+  } catch (err) {
+    toast.error("Failed to trigger SOS.");
+  }
+};
+
 
   const handleCreateVibe = async (vibeData) => {
     if (myActiveVibe || !userLoc) return;
@@ -747,6 +775,25 @@ const Home = () => {
                   vibes={allVibes}
                   center={userLoc ? [userLoc.lat, userLoc.lng] : null}
                 />
+
+                
+<div className="p-3 border-top border-dark">
+  <Button
+    variant="danger"
+    onClick={handleSOS}
+    className="w-100 py-3 fw-bold animate__animated animate__pulse animate__infinite"
+    style={{ 
+      borderRadius: "16px", 
+      backgroundColor: "#ff4444", 
+      border: "none",
+      fontSize: "0.8rem",
+      letterSpacing: "1px"
+    }}
+  >
+    <ShieldAlert size={18} className="me-2" />
+    TRIGGER EMERGENCY SOS
+  </Button>
+</div>
 
                 <div className="p-3 d-none d-lg-block">
                   <div className="d-flex justify-content-between small text-white-50">
@@ -1063,6 +1110,39 @@ const Home = () => {
           </div>
         </Modal.Body>
       </Modal>
+      <Modal
+  show={showSOSConfirm}
+  onHide={() => setShowSOSConfirm(false)}
+  centered
+  contentClassName="bg-black border-danger rounded-5"
+>
+  <Modal.Body className="text-center p-5">
+    <div className="mb-4 animate__animated animate__pulse animate__infinite">
+      <ShieldAlert size={60} color="#ff4444" />
+    </div>
+    <h3 className="fw-black text-white mb-3">EMERGENCY SOS</h3>
+    <p className="text-white-50 small mb-4">
+      This will broadcast your location to all verified peers within a 500m radius. 
+      [cite_start]Use this only for actual emergencies.  [cite: 88-89, 872-878]
+    </p>
+    <div className="d-grid gap-2">
+      <Button
+        onClick={confirmAndTriggerSOS}
+        className="py-3 fw-bold border-0 active-click"
+        style={{ backgroundColor: "#ff4444", borderRadius: "15px", color: "#fff" }}
+      >
+        CONFIRM & BROADCAST
+      </Button>
+      <Button
+        variant="link"
+        onClick={() => setShowSOSConfirm(false)}
+        className="text-white-50 text-decoration-none fw-bold mt-2"
+      >
+        CANCEL
+      </Button>
+    </div>
+  </Modal.Body>
+</Modal>
 
       <Settings
         isOpen={isSettingsOpen}
